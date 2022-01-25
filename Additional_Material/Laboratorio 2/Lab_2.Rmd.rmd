@@ -1,0 +1,886 @@
+---
+title: "Laboratorio con `R` - 2"
+subtitle: "Metodi e Modelli per l'Inferenza Statistica - Ing. Matematica - a.a. 2018-19"
+author: 
+date: 30/05/2019
+output: pdf_document
+pdf_document: yes
+number_sections: yes
+toc: no
+urlcolor: blue
+---
+
+##---------------------------------------------------------------------------------------------------
+##0. Librerie
+##---------------------------------------------------------------------------------------------------
+```{r load_libraries, eval = TRUE, collapse = TRUE }
+library( MASS )
+library( car ) #for LEVENE TEST
+library( faraway )
+library( Matrix )
+```
+
+
+##---------------------------------------------------------------------------------------------------
+##1. Visualizzazione della decomposizione della varianza
+##---------------------------------------------------------------------------------------------------
+Analizzare il dataset CICLISTI andando a visualizzare in maniera efficacie le seguenti quantità di interesse:
+
+$$
+SS_{reg} = \sum_{i=1}^n( \hat{y}_i - \bar{y} )^2
+$$
+$$
+SS_{err} = \sum_{i=1}^n( y_i - \hat{y}_i)^2
+$$
+$$
+SS_{tot} = \sum_{i=1}^n( y_i - \bar{y} )^2
+$$
+
+dove con $y_i$ si sono indicati i valori della variabile risposta (__Car__) in corrispondenza
+di ciascun valore $x_i$ (__Center__), con $\hat{y}_i$ i valori stimati sulla retta di regressione e con
+$\bar{y}$ la media delle $y_i$. è facile vedere che:
+$$
+  SS_{tot} = SS_{reg} + SS_{err}
+$$
+
+
+
+__Soluzione__
+
+Importiamo del dataset:
+```{r load_ciclisti, eval = TRUE, collapse = TRUE }
+ciclisti = read.table( "ciclisti.txt", header = TRUE )
+
+head(ciclisti)
+
+names( ciclisti )
+
+dim( ciclisti )
+
+n = dim( ciclisti )[1]
+```
+
+Fittiamo ora un modello lineare semplice e calcoliamo le quantità di interesse.
+
+```{r reg_ciclisti, eval = TRUE, collapse = TRUE }
+reg.ciclisti = lm( Car ~ Center, data = ciclisti )
+summary( reg.ciclisti )
+
+# y_i ( dati osservati )
+y.i = ciclisti$Car
+y.i
+
+# y medio
+y.mean = mean( ciclisti$Car )
+y.mean 
+
+# y.hat ( dati predetti/stimati dal modello )
+y.hat = reg.ciclisti$fitted.value
+y.hat
+```
+
+Facciamo il grafico delle quantità di interesse.
+
+```{r graf_ciclisti, eval = TRUE, collapse = TRUE }
+par( mfrow = c( 1, 3 ) )
+
+# SStot = Sum( y_i - y_medio )^2
+plot( NULL, xlim = c( 12, 22 ), ylim = c( 5, 12 ),
+      xlab = "Center", ylab = "Car", main = "Contributo di yi a SStot" )
+points( ciclisti$Center, ciclisti$Car,
+        pch = 16, col = 'blue', cex = 1.2 )
+
+for ( i in 1:n )
+  segments( ciclisti$Center [ i ], ciclisti$Car[ i ], ciclisti$Center [ i ], y.mean,
+            lwd = 2, col = 'red', lty = 1 )
+
+abline( h = y.mean , col = 'darkblue', lwd = 1.2 )
+
+abline( reg.ciclisti, lwd = 2, col = 'black', lty = 2 )
+
+# SSreg = Sum( y.hat_i - y_medio )^2
+plot( NULL, xlim = c( 12, 22 ), ylim = c( 5, 12 ),
+      xlab = "Center", ylab = "Car", main = "Contributo di y.hat_i a SSreg" )
+points( ciclisti$Center, ciclisti$Car,
+        pch = 16, col = 'blue', cex = 1.2 )
+
+for ( i in 1:n )
+  segments( ciclisti$Center [ i ], y.hat[ i ], ciclisti$Center [ i ], y.mean,
+            lwd = 2, col = 'red', lty = 1 )
+
+abline( h = y.mean , col = 'darkblue', lwd = 1.2 )
+
+abline( reg.ciclisti, lwd = 2, col = 'black', lty = 2 )
+
+
+# SSerr = Sum( y_i - y.hat_i )^2
+plot( NULL, xlim = c( 12, 22 ), ylim = c( 5, 12 ),
+      xlab = "Center", ylab = "Car", main = "Contributo di yi a SSerr" )
+points( ciclisti$Center, ciclisti$Car, pch = 16, col = 'blue', cex = 1.2 )
+
+for ( i in 1:n )
+  segments( ciclisti$Center [ i ], ciclisti$Car[ i ], ciclisti$Center [ i ], y.hat [ i ],
+            lwd = 2, col = 'red', lty = 1 )
+
+abline( h = y.mean , col = 'darkblue', lwd = 1.2 )
+
+abline( reg.ciclisti, lwd = 2, col = 'black', lty = 2 )
+```
+
+
+
+##---------------------------------------------------------------------------------------------------
+##2. One-way ANOVA 
+##---------------------------------------------------------------------------------------------------
+
+Importiamo i dati `chickwts`. Vogliamo investigare se il peso dei polli è influenzato dal tipo di alimentazione (y = weights e $\tau$ = feed).
+
+__Soluzione__
+
+Importiamo i dati.
+```{r dati_polli, eval = TRUE, collapse = TRUE }
+str( chickwts )
+head( chickwts )
+tail( chickwts )
+
+attach( chickwts )
+```
+
+Iniziamo a farci un'idea descrittiva dei dati per avere indicazioni
+qualitative sulla presenza di differenziazione nella risposta a
+causa dell'appartenenza ad una o all'altra categoria
+
+Consiglio grafico: spesso è utile rappresentare i gruppi di dati con colori diversi, potete trovare alcune palette di colori nel pacchetto RColorBrewer
+
+```{r colori_polli, eval = TRUE, collapse = TRUE }
+library(RColorBrewer)
+
+display.brewer.all()
+
+my_colors = brewer.pal( length( levels( chickwts$feed ) ), 'Set2')
+
+summary( chickwts )
+
+boxplot( weight ~ feed, xlab = 'feed', ylab = 'weight',
+         main = 'Chicken weight according to feed',
+         col = my_colors )
+abline( h = mean( weight ) )
+
+tapply( chickwts$weight, chickwts$feed, length )
+```
+
+Sembra che un qualche effetto ci sia, le medie appaiono diverse
+e sembra vi sia una dominanza stocastica delle distribuzioni dei pesi.
+
+Il modello che vogliamo fittare è il seguente:
+
+$$
+y_{ij} = \mu_j + \varepsilon_{ij} =   \mu + \tau_j + \varepsilon_{ij}
+$$
+in cui $i \in \{1,.., n_j\}$ è l'indice dell'unità statistica all'interno del grupp $j$, mentre $j \in \{1,..,g\}$ è l'indice di gruppo.
+
+Siamo interessati ad eseguire il seguente test:
+$$
+H_0: \mu_i = \mu_j \quad \forall i,j \in \{1,..,6\} \qquad vs \qquad
+H_1: \exists \, (i,j) \, | \mu_i \neq \mu_j 
+$$
+Parafrasando, $H_0$ prevede che tutti i polli appartengono ad una sola popolazione, mentre $H_1$ prevede che i polli appartengono a 2, 3, 4, 5 o 6 popolazioni.
+
+```{r cfr_polli, eval = TRUE, collapse = TRUE }
+par( mfrow = c( 1, 2 ) )
+
+barplot( rep( mean( weight ), 6 ), names.arg = levels( feed ),
+         ylim = c( 0, max( weight ) ), main = "se H0 vera", col = 'grey' )
+
+barplot( tapply( weight, feed, mean ), names.arg = levels( feed ),
+         ylim = c( 0, max( weight ) ), main = "se H0 falsa", col = my_colors )
+```
+
+Facciamo un' ANOVA manuale. 
+
+Verifichiamo che siano soddisfatte le ipotesi dell'ANOVA:
+
+* __Normalità__ intragruppo;
+* __Omoschedasticità__ fra i gruppi.
+
+```{r anova_ip_polli, eval = TRUE, collapse = TRUE }
+n  = length( feed )
+ng  = table( feed )
+treat  = levels( feed )
+g  = length( treat )
+
+# Normalità dei dati nei gruppi
+Ps = c( shapiro.test( weight [ feed == treat [ 1 ] ] )$p,
+        shapiro.test( weight [ feed == treat [ 2 ] ] )$p,
+        shapiro.test( weight [ feed == treat [ 3 ] ] )$p,
+        shapiro.test( weight [ feed == treat [ 4 ] ] )$p,
+        shapiro.test( weight [ feed == treat [ 5 ] ] )$p,
+        shapiro.test( weight [ feed == treat [ 6 ] ] )$p )
+Ps
+
+# In maniera più compatta ed elegante:
+Ps = tapply( weight, feed, function( x ) ( shapiro.test( x )$p ) )
+
+Ps # tutti p-value alti = > non rifiuto mai hp di Normalità
+
+# Varianze dei gruppi omogenee
+Var = c( var( weight [ feed == treat [ 1 ] ] ),
+         var( weight [ feed == treat [ 2 ] ] ),
+         var( weight [ feed == treat [ 3 ] ] ),
+         var( weight [ feed == treat [ 4 ] ] ),
+         var( weight [ feed == treat [ 5 ] ] ),
+         var( weight [ feed == treat [ 6 ] ] ) )
+Var
+
+# In maniera più compatta ed elegante:
+Var = tapply( weight, feed, var )
+Var
+
+# Test di uniformità delle varianze
+bartlett.test( weight, feed )
+
+# Alternative: Levene-Test
+leveneTest( weight, feed )
+```
+
+__Bartlett's test__
+
+Il Bartlett test è il seguente:
+$$
+H_0: \sigma_1 = \sigma_2 = ... = \sigma_g \qquad vd \qquad
+H_1: H_0^C
+$$
+
+La statistica test 'K' del test di Bartlett è approssimativamente distribuita come una $\chi^2$ con (g-1) gradi di libertà.
+
+La statistica test 'K' confronta una varianza globale (pooled) con uno stimatore costruito sulla base delle varianze dei singoli gruppi.
+
+Valori piccoli di 'K' mi portano ad accettare $H_0$, mentre valori grandi di 'K' mi portano a rifiutare $H_0$.
+
+Il test di Bartlett assume che le osservazioni appartenenti ai vari gruppi siano iid da una Normale. Il test è costruito su questa ipotesi, quindi scostamenti anche di un solo gruppo dalla normalità hanno ripercussioni significative sulla validità e l'esito del test. Ci sono altri test, più robusti, che vagliano le stesse ipotesi (e.g. Levene, Brown-Forsythe).
+
+Ora che abbiamo verificato che le ipotesi sono soddisfatte possiamo procedere con una One-Way ANOVA.
+
+$$
+F_0 = \frac{SS_{TREAT}/r}{SS_{RES}/(n-p)} \sim F(r,n-p)
+$$
+in cui:
+$$
+SS_{TREAT} = \sum_{j=1}^g (\mu_j-\mu)^2\cdot n_j
+$$
+Nella one-way ANOVA il numero di regressori $r = g-1$.
+
+```{r anova_man_polli, eval = TRUE, collapse = TRUE }
+Media  = mean( weight )
+Media.1 = mean( weight [ feed == treat [ 1 ] ] )
+Media.2 = mean( weight [ feed == treat [ 2 ] ] )
+Media.3 = mean( weight [ feed == treat [ 3 ] ] )
+Media.4 = mean( weight [ feed == treat [ 4 ] ] )
+Media.5 = mean( weight [ feed == treat [ 5 ] ] )
+Media.6 = mean( weight [ feed == treat [ 6 ] ] )
+Mediag  = c( Media.1, Media.2, Media.3, Media.4, Media.5, Media.6 )
+
+# oppure (FORTEMENTE CONSIGLIATO):
+Media  = mean( weight )
+Mediag  = tapply( weight, feed, mean )
+
+SStot  = var( weight ) * ( n-1 )
+SStreat = sum( ng * ( Mediag-Media )^2 )
+SSres  = SStot - SStreat
+
+alpha = 0.05
+Fstatistic = ( SStreat / ( g-1 ) ) / ( SSres / ( n-g ) )
+
+# valori "piccoli" non ci portano a rifiutare
+cfr.fisher = qf( 1-alpha, g-1, n-g )
+Fstatistic > cfr.fisher
+Fstatistic # siamo proprio ben oltre la soglia = > evidenza forte per rifiutare
+cfr.fisher
+
+P = 1-pf( Fstatistic, g-1, n-g )
+P
+```
+
+
+In `R` si può anche eseguire l'ANOVA in modo automatico. 
+
+```{r anova_aut_polli, eval = TRUE, collapse = TRUE }
+help( aov )
+
+# Costruiamo un modelo anova e guardiamo il summary
+fit = aov( weight ~ feed )
+summary( fit )
+
+# Oppure:
+mod = lm( weight ~ feed )
+# Qui tuttavia dobbiamo sapere dove guardare per trovare le informazioni di prima.
+# Confrontare il p-value del test di significatività globale.
+summary( mod )
+
+# Meglio fare:
+anova( mod )
+```
+
+Osserviamo che la conferma che ci siano medie diverse fra i gruppi ci è data dai seguenti elementi:
+
+__ANOVA MANUALE__ P-value del test di differenza fra medie dei gruppi (5.93642e-10);
+
+__ANOVA AUTOMATICA__ P-value del comando ANOVA (5.94e-10);
+
+__LINEAR MODEL__ P-value del test di significatività dei regressori (5.936e-10).
+
+Affermiamo quindi che c'è differenza delle medie fra i gruppi.
+
+E' interessante notare che $SS_{TREAT}$ calcolato a mano fa parte dell'output del comando summary dell'ANOVA. Idem per $SS_{RES}$.
+
+##---------------------------------------------------------------------------------------------------
+##3. Riflessione costruzione matrice disegno ANOVA
+##---------------------------------------------------------------------------------------------------
+Poniamoci nel caso di ONE-WAY ANOVA. Per verificare l'esistenza di diversi gruppi, di fatto quello che vogliamo fare è un modello di regressione lineare con una variabile factor (__variabile dummy__).
+$$
+\mathbf{y} = X \boldsymbol{\beta} + \boldsymbol{\varepsilon}
+$$
+Se avessimo 7 gruppi con numerosità {3,2,3,2,3,2,3} rispettivamente, la matrice disegno X sarebbe:
+$$
+\left[\begin{array}{cccccccc} 
+1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\
+1 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+1 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+1 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\
+\end{array}\right]
+$$ 
+Tuttavia questa matrice disegno (X.full nel codice) è singolare, cioè non invertibile. per invertirla manualmente dobbiamo ricorrere alla pseudoinversa di Moore-Penrose. 
+
+In alternativa, possiamo scrivere la matrice disegno sotto forma di contrasto:
+$$
+\left[\begin{array}{ccccccc} 
+1 & 1 & 0 & 0 & 0 & 0 & 0  \\
+1 & 1 & 0 & 0 & 0 & 0 & 0  \\
+1 & 1 & 0 & 0 & 0 & 0 & 0  \\
+1 & 0 & 1 & 0 & 0 & 0 & 0  \\
+1 & 0 & 1 & 0 & 0 & 0 & 0  \\
+1 & 0 & 0 & 1 & 0 & 0 & 0  \\
+1 & 0 & 0 & 1 & 0 & 0 & 0  \\
+1 & 0 & 0 & 1 & 0 & 0 & 0  \\
+1 & 0 & 0 & 0 & 1 & 0 & 0  \\
+1 & 0 & 0 & 0 & 1 & 0 & 0  \\
+1 & 0 & 0 & 0 & 0 & 1 & 0  \\
+1 & 0 & 0 & 0 & 0 & 1 & 0  \\
+1 & 0 & 0 & 0 & 0 & 1 & 0  \\
+1 & 0 & 0 & 0 & 0 & 0 & 1  \\
+1 & 0 & 0 & 0 & 0 & 0 & 1  \\
+1 & -1 & -1 & -1 & -1 & -1 & -1  \\
+1 & -1 & -1 & -1 & -1 & -1 & -1  \\
+1 & -1 & -1 & -1 & -1 & -1 & -1  \\
+\end{array}\right]
+$$ 
+Notiamo subito che questa matrice è analoga alla precedente (nel senso che studio la significatività degli stessi regressori) ma è non singolare e quindi inveritibile.
+
+__REMARK__ Se facciamo tapply( feed, feed, length ) R calcola le numerosità dei gruppi e le riordina in ordine alfabetico di nome del grupponSe vogliamo utilizzare le numerosità nell'ordine in cui si presentano i gruppi nel dataset (feed), dobbiamo fare:
+
+```{r anova_factor_approf, eval = TRUE, collapse = TRUE }
+n
+
+group_names = unique( as.character( feed ) )
+ng = tapply( feed, feed, length )[ group_names ]
+
+treat
+```
+
+
+Costruiamo la matrice Xfull, ovvero una matrice disegno dove consideriamo tutti i gruppi (dimensione = n x (g + 1) ).
+
+```{r anova_Xfull_approf, eval = TRUE, collapse = TRUE }
+# gruppo 1 (nell'ordine dei dati in ( weight,feed )
+x1.full = c( rep( 1, ng [ 1 ] ),
+            rep( 0, n - ng [ 1 ] ) )
+
+# gruppo 2 (nell'ordine dei dati in ( weight,feed )
+x2.full = c( rep( 0, ng [ 1 ] ),
+            rep( 1, ng [ 2 ] ),
+            rep( 0, n - ng [ 1 ] - ng [ 2 ] ) )
+
+# gruppo 3 (nell'ordine dei dati in ( weight,feed )
+x3.full = c( rep( 0, ng [ 1 ] + ng [ 2 ] ),
+            rep( 1, ng [ 3 ] ),
+            rep( 0, n - ng [ 1 ] - ng [ 2 ] - ng [ 3 ] ) )
+
+# gruppo 4 (nell'ordine dei dati in ( weight,feed )
+x4.full = c( rep( 0, n - ng [ 6 ] - ng [ 5 ] - ng [ 4 ] ),
+            rep( 1, ng [ 4 ] ),
+            rep( 0, ng [ 5 ]  + ng [ 6 ] ) )
+
+# gruppo 5 (nell'ordine dei dati in ( weight,feed )
+x5.full = c( rep( 0, n - ng [ 6 ] - ng [ 5 ] ),
+            rep( 1, ng [ 5 ] ),
+            rep( 0, ng [ 6 ] ) )
+
+# gruppo 6 (nell'ordine dei dati in ( weight,feed )
+x6.full = c( rep( 0, n - ng [ 6 ] ),
+            rep( 1, ng [ 6 ] ) )
+
+X.full = cbind( rep( 1, n ),
+                   x1.full,
+                   x2.full,
+                   x3.full,
+                   x4.full,
+                   x5.full,
+                   x6.full )
+```
+
+Visualizziamo questa matrice disegno.
+```{r anova_Xfullvisual_approf, eval = TRUE, collapse = TRUE }
+#corrplot( X.full, corr = F, method = 'ellipse' )
+image(Matrix(X.full))
+```
+
+Vediamo che non ha rango pieno (proviamo che una colonna è combinazione lineare di un'altra).
+
+```{r anova_Xfullnotinvertible_approf, eval = TRUE, collapse = TRUE }
+X.full[ , 1 ] - rowSums( X.full[ , - 1 ] )
+```
+
+Stimiamo ora i $\boldsymbol{\hat{\beta}}$. Ricordiamo che X è singolare, quindi H sarà calcolato come segue:
+
+$$
+H = X \cdot (X^T \cdot X)^{\dagger} \cdot X^T
+$$
+in cui $(X^T \cdot X)^{\dagger}$ indica la pseudo-inversa di Moore-Penrose.
+E i $\boldsymbol{\hat{\beta}}$ saranno calcolati come:
+$$
+\boldsymbol{\hat{\beta}} = (X^T \cdot X)^{\dagger} \cdot X^T \cdot \mathbf{y}
+$$
+```{r anova_Xfullstimabeta_approf, eval = TRUE, collapse = TRUE }
+# H.full = X.full %*% solve( t( X.full ) %*% X.full ) %*% t( X.full )
+# R dà errore, perché singolare!
+
+H.full = X.full %*% ginv( t( X.full ) %*% X.full ) %*% t( X.full )
+
+y  = weight
+
+betas.full = as.numeric( ginv( t( X.full ) %*% X.full ) %*% t( X.full ) %*% y )
+```
+
+
+La media nel gruppo j-esimo è: 
+
+$$
+\mathbb{E}[y_j] = \mu_j = \beta_0 + \beta_j \qquad j=1:g
+$$
+```{r Xfullmeangroup_approf, eval = TRUE, collapse = TRUE }
+means_by_group = betas.full[ 1 ] + betas.full[ 2:length( betas.full ) ] 
+names( means_by_group ) = group_names
+
+means_by_group
+tapply( weight, feed, mean )[ unique( as.character( feed ) ) ]
+```
+
+La media globale è': 
+$$
+\mu = \sum_{j=1}^g \frac{n_j\cdot \mu_j}{n}
+$$
+
+```{r Xfullmean_approf, eval = TRUE, collapse = TRUE }
+global_mean = ng %*% means_by_group / n
+global_mean
+
+mean( weight )
+```
+
+Costruiamo la matrice disegno basata sui contrasti.
+
+```{r anova_Xred_approf, eval = TRUE, collapse = TRUE }
+x1.red = c( rep( 1, ng [ 1 ] ),
+            rep( 0, n - ng [ 1 ] - ng [ 6 ] ),
+            rep( -1, ng [ 6 ] ) )
+stopifnot( sum( x1.red - ( x1.full - x6.full ) ) == 0 )
+
+x2.red = c( rep( 0, ng [ 1 ] ),
+            rep( 1, ng [ 2 ] ),
+            rep( 0, n - ng [ 1 ] - ng [ 2 ] - ng [ 6 ] ),
+            rep( -1, ng [ 6 ] ) )
+stopifnot( sum( x2.red - ( x2.full - x6.full ) ) == 0 )
+
+x3.red = c( rep( 0, ng [ 1 ] + ng [ 2 ] ),
+            rep( 1, ng [ 3 ] ),
+            rep( 0, n - ng [ 1 ] - ng [ 2 ] - ng [ 3 ] - ng [ 6 ] ),
+            rep( -1, ng [ 6 ] ) )
+stopifnot( sum( x3.red - ( x3.full - x6.full ) ) == 0 )
+
+x4.red = c( rep( 0, n - ng [ 6 ] - ng [ 5 ] - ng [ 4 ] ),
+            rep( 1, ng [ 4 ] ),
+            rep( 0, ng [ 5 ] ),
+            rep( -1, ng [ 6 ] ) )
+stopifnot( sum( x4.red - ( x4.full - x6.full ) ) == 0 )
+
+x5.red = c( rep( 0, n - ng [ 6 ] - ng [ 5 ] ),
+            rep( 1, ng [ 5 ] ),
+            rep( -1, ng [ 6 ] ) )
+stopifnot( sum( x5.red - ( x5.full - x6.full ) ) == 0 )
+
+
+X.red  = cbind( rep( 1, n ),
+                x1.red,
+                x2.red,
+                x3.red,
+                x4.red,
+                x5.red )
+```
+
+Visualizziamo questa matrice. Dimensione = n x g.
+
+```{r anova_Xredvis_approf, eval = TRUE, collapse = TRUE }
+#corrplot( X.red, corr = F, method = 'ellipse' )
+image(Matrix(X.red))
+```
+
+Stimiamo ora i $\boldsymbol{\hat{\beta}}$.
+
+```{r anova_Xredbeta_approf, eval = TRUE, collapse = TRUE }
+solve( t( X.red ) %*% X.red )
+solve( t( X.red ) %*% X.red ) - ginv( t( X.red ) %*% X.red )
+
+H.red  = X.red %*% solve( t( X.red ) %*% X.red ) %*% t( X.red )
+
+betas.red = as.numeric( solve( t( X.red ) %*% X.red ) %*% t( X.red ) %*% y )
+```
+
+
+La media nel gruppo i-esimo si ottiene nel seguente modo:
+$$
+\mu_j = \beta_0 + \beta_i \qquad i = 1, ..., g-1
+$$
+$$
+\mu_g = \beta_0 - ( \beta_1 + ... + \beta_{g-1} )
+$$
+
+```{r anova_Xredmeans_approf, eval = TRUE, collapse = TRUE }
+means_by_group = betas.red[ 1 ] + betas.red[ -1 ]
+means_by_group = c( means_by_group, betas.red[ 1 ] - sum( betas.red[ -1 ] ) )
+
+names( means_by_group ) = group_names
+means_by_group
+tapply( weight, feed, mean )[ group_names ]
+```
+Abbiamo quindi visto che sia con la matrice disegno singolare che non giungiamo allo stesso risultato.
+
+__REMARK__ Ma cosa fa `R` in automatico?
+
+```{r anova_X_approf, eval = TRUE, collapse = TRUE }
+mod_aov = aov( weight ~ feed )
+X_aov = model.matrix( mod_aov )
+```
+
+Vediamo che la matrice disegno creata dall'ANOVA è di dimensioni n x g. Notiamo che manca la variabile (livello) `casein` che è usata come baseline.
+
+```{r lm_X_approf, eval = TRUE, collapse = TRUE }
+mod_lm = lm( weight ~ feed )
+X_lm = model.matrix( mod_lm )
+```
+
+Idem nel caso di modello lineare.
+
+Visualizziamo la matrice disegno dell'ANOVA implementata in `R`.
+
+```{r vis_X_approf, eval = TRUE, collapse = TRUE }
+#corrplot( X_lm, corr = F, method = 'ellipse' )
+image( Matrix( X_lm ) )
+
+levels(feed)
+unique(feed)
+```
+
+__REMARK__ Il __primo gruppo__ (nell'ordine alfanumerico dei livelli della variabile di stratificazione, feed, e NON nell'ordine di comparizione dei dati) viene soppresso e preso come riferimento (baseline).
+
+Calcoliamo ora i $\boldsymbol{\hat{\beta}}$.
+
+```{r beta_aov_approf, eval = TRUE, collapse = TRUE }
+betas.lm = coefficients( mod_lm )
+```
+
+La media nel gruppo j-esimo si ottiene nel seguente modo:
+$$
+\mu_{baseline} = \beta_0
+$$
+$$
+\mu_j = \beta_0 + \beta_j, \qquad j \neq baseline
+$$
+```{r mu_aov_approf, eval = TRUE, collapse = TRUE }
+means_by_group = c( betas.lm[ 1 ], betas.lm[ 1 ] + betas.lm[ -1 ] )
+names( means_by_group ) = levels( feed )
+
+means_by_group
+tapply( weight, feed, mean )
+```
+
+
+##---------------------------------------------------------------------------------------------------
+##4. One-way ANOVA
+##---------------------------------------------------------------------------------------------------
+
+The example dataset we will use is a set of 24 blood coagulation times.
+24 animals were randomly assigned to four different diets and the samples were taken in a random order. This data comes from Box, Hunter, and Hunter ( 1978 ).
+
+```{r coag_import_data, eval = TRUE, collapse = TRUE }
+data( coagulation )
+
+str( coagulation )
+dim( coagulation )
+names( coagulation )
+head( coagulation )
+```
+
+The first step is to plot the data to check for:
+
+__1.__ Normality assumption;
+
+__2.__ Equal variances for each level of the factor.
+
+
+We don't want to detect:
+
+__1.__ Skewness - this will be suggested by an asymmetrical form of the boxes.
+
+__2.__ Unequal variance - this will be suggested by unequal box sizes. Some care is required because often there is very little data to be used in the construction of the boxplots and so even when the variances are truly equal in the groups, we can expect a bit variability.
+
+```{r coag_vis_data, eval = TRUE, collapse = TRUE }
+
+plot( coag ~ diet, data = coagulation )
+```
+
+In this case, there are no obvious problems. For group C, there are only 4 distinct observations and one is somewhat separated which accounts for the slightly odd looking plot.
+Always look at sample sizes.
+
+```{r coag_table_data, eval = TRUE, collapse = TRUE }
+table( coagulation$diet )
+
+coagulation$coag[ coagulation$diet == 'C' ]
+unique( coagulation$coag[ coagulation$diet == 'C' ] )
+```
+
+Now let's fit the model.
+
+```{r coag_lm_data, eval = TRUE, collapse = TRUE }
+mod = lm( coag ~ diet, coagulation )
+summary( mod )
+```
+
+What kind of design matrix has been used in this case?
+Look at the design matrix to understand the coding:
+
+```{r coag_mm_data, eval = TRUE, collapse = TRUE }
+model.matrix( mod ) #n x g
+```
+
+Effects have to be interpreted as differences from a reference level (the first in alphabetical order).
+
+What do we conclude by looking at the p-value?
+We can read the output in this way:
+Group A is the reference level (__baseline__) and has a mean equal to 61, groups B, C and D are 5, 7 and 0 seconds larger on average.
+
+We can fit the model without an intercept term.
+
+```{r coag_lm2_data, eval = TRUE, collapse = TRUE }
+mod_i = lm( coag ~ diet - 1, coagulation )
+
+summary( mod_i )
+
+model.matrix( mod_i )
+```
+
+Now, without the intercept, each coefficients estimates the effect in that group
+
+We can directly read the level means.
+Tests are not useful since they involve comparisons with zero.
+Note the __miscalculation__ of $R^2$ (which is derived on the assumption that the intercept is present).
+
+__Diagnostics__ 
+
+```{r coag_res_data, eval = TRUE, collapse = TRUE }
+
+par( mfrow = c(1,2) )
+
+qqnorm( mod$res, pch = 16, col = 'black', main = 'QQ-norm dei residui' )
+qqline( mod$res, lwd = 2, col = 'red', lty = 2 )
+
+shapiro.test( mod$res )
+
+plot( mod$fit, mod$res, xlab = "Fitted", ylab = "Residuals", main = "Residual-Fitted plot",
+      pch = 16 )
+```
+
+Since data are integers and fitted values are integers too, a discrete-like pattern must be expected in the QQ plot. Of course, discrete data can't be normally distributed. However, here residuals are approximately normal and so we can go ahead with the inference. The discrete behaviour in the residuals and fitted values shows up in the residual-fitted plot because we can see fewer points than the sample size. This is due to the overplotting of points' symbols.
+
+__POST ANOVA ANALYSIS__
+
+For investigating differences between groups there are other techniques, such as:
+
+__DOE__ (design of experiments)
+
+__Blocking__
+
+__Factorial Design and Latin Squares__
+
+
+##---------------------------------------------------------------------------------------------------
+##5. Two-ways ANOVA
+##---------------------------------------------------------------------------------------------------
+
+Two-way anova design where there are 4 replicates.
+As part of an investigation of toxic agents, 48 rats were allocated to
+- 3 poisons ( I, II, III ) and
+- 4 treatments ( A, B, C, D ).
+The response was survival time in tens of hours.
+
+```{r rats_load_data, eval = TRUE, collapse = TRUE }
+data( rats )
+
+str( rats )
+
+head( rats )
+tail( rats )
+names( rats )
+```
+
+Some automatic plots.
+```{r rats_vis_data, eval = TRUE, collapse = TRUE }
+plot( time ~ treat + poison, data = rats )
+
+par( mfrow = c( 1,2 ) )
+boxplot( time ~ treat, data = rats )
+boxplot( time ~ poison, data = rats )
+
+pairs(rats) #poco interpretabile
+```
+
+Some evidence of skewness can be seen, especially since it appears that variance is in some way related to the mean response.
+
+Check for an interaction using graphical methods:
+
+```{r rats_inter_data, eval = TRUE, collapse = TRUE }
+help(interaction.plot)
+
+interaction.plot( rats$treat, rats$poison, rats$time )
+
+interaction.plot( rats$poison, rats$treat, rats$time )
+```
+
+Parallel lines would suggest the absence of interaction, yet it is not always easy to figure it out with these plots.
+
+Before applying a two-way ANOVA, we have to test the following hypotheses:
+
+* NORMALITY (in all groups, 12 tests);
+
+* HOMOGENEOUS VARIANCES (among groups).
+
+
+```{r rats_barttest_data, eval = TRUE, collapse = TRUE }
+tapply( rats$time, rats$treat:rats$poison, function( x ) shapiro.test( x )$p )
+
+leveneTest( rats$time, rats$treat:rats$poison )
+bartlett.test( rats$time, rats$treat:rats$poison )
+
+#what is Bartlett test?
+t = bartlett.test( 1/rats$time, rats$pois )
+t
+names( t )
+# t$statistic Bartlett's K-squared test statistic.
+# t$parameter the degrees of freedom of the approximate chi-squared 
+# distribution of the test statistic.
+# t$p.value the p-value of the test.
+# t$method the character string "Bartlett test of homogeneity of variances".
+# t$data.name a character string giving the names of the data.
+```
+
+We notice that normality is respected in all 12 groups ( even thogh we observe low p-value for the first group A-I ). The variances homogeneity is violated (see p-value of Levene's test).
+
+It could be possible to consider variable transformation. We should try a Box-Cox transformation for the output variable, considering the complete model. 
+
+Fitting the complete model means considering __interaction__ between considered factors.
+
+```{r rats_lminteract_data, eval = TRUE, collapse = TRUE }
+g = lm( time ~ poison * treat, rats )
+#"*" gives the full model: linear effect AND interaction
+#g = lm( time ~ poison + treat + poison : treat , rats )
+
+summary( g )
+anova( g )
+
+b = boxcox( g, lambda = seq(-3,3,by=0.01) )
+best_lambda = b$x[ which.max( b$y ) ]
+best_lambda
+
+g1 = lm( 1/time ~ poison * treat, rats )
+
+summary(g1)
+anova(g1)
+```
+
+The best $\lambda$ is $-1$.
+
+We should check the hypotheses of the model.
+
+```{r rats_transf1_data, eval = TRUE, collapse = TRUE }
+par( mfrow = c( 1, 2 ) )
+qqnorm( g1$res/summary( g1 )$sigma, pch = 16, main = 'QQ-norm of residuals'  )
+abline( 0, 1, lwd = 2, lty = 2, col = 'red' )
+
+shapiro.test( g1$res )
+
+plot( g1$fitted, g1$res, xlab = "Fitted", ylab = "Residuals", main = "Reciprocal response",
+      pch = 16 )
+```
+
+The hypotheses of the model are respected. We should not consider the interaction then:
+
+```{r rats_lm_data, eval = TRUE, collapse = TRUE }
+g1_sel = lm( 1/time ~ poison + treat, data = rats )
+summary( g1_sel )
+anova( g1_sel )
+```
+
+We should check the hypotheses of the model.
+
+```{r rats_transf1_data_hyp, eval = TRUE, collapse = TRUE }
+par( mfrow = c( 1, 2 ) )
+qqnorm( g1_sel$res/summary( g1_sel )$sigma, pch = 16, main = 'QQ-norm of residuals'  )
+abline( 0, 1, lwd = 2, lty = 2, col = 'red' )
+
+shapiro.test( g1_sel$res )
+
+plot( g1_sel$fitted, g1$res, xlab = "Fitted", ylab = "Residuals",
+      main = "Reciprocal response", pch = 16 )
+```
+
+This gives us the same output of the following hypotheses investigation:
+
+```{r rats_anova_check, eval = TRUE, collapse = TRUE }
+tapply( 1/rats$time, rats$poison, function( x ) shapiro.test( x )$p )
+tapply( 1/rats$time, rats$treat, function( x ) shapiro.test( x )$p )
+
+leveneTest( 1/rats$time, rats$poison )
+leveneTest( 1/rats$time, rats$treat )
+
+bartlett.test( 1/rats$time, rats$poison )
+bartlett.test( 1/rats$time, rats$treat )
+```
+
+
+
+
+
+

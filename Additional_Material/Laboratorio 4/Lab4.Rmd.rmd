@@ -1,0 +1,467 @@
+---
+title: "Laboratorio con `R` - 4"
+subtitle: "Metodi e Modelli per l'Inferenza Statistica - Ing. Matematica - a.a. 2018-19"
+author: 
+date: 05/06/2019
+output: pdf_document
+pdf_document: yes
+number_sections: yes
+toc: no
+urlcolor: blue
+---
+
+##---------------------------------------------------------------------------------------------------
+##0. Librerie
+##---------------------------------------------------------------------------------------------------
+```{r load_libraries, eval = TRUE, collapse = TRUE }
+library( rms )
+
+library(ResourceSelection)
+```
+
+## Reference:
+Agresti, A. (2003). Categorical data analysis (Vol. 482). John Wiley & Sons.
+
+##---------------------------------------------------------------------------------------------------
+##1. Regressione logistica semplice
+##---------------------------------------------------------------------------------------------------
+
+Prendiamo in esame il dataset relativo ad uno studio clinico su pazienti affetti da disturbi coronarici. In particolare, l'obiettivo dello studio consiste nello spiegare la presenza o l'assenza di significativi disturbi coronarici ( CHD ) in funzione dell'età ( variabile AGE ) dei pazienti. I dati si riferiscono a 100 pazienti. Le variabili del database sono descritte nel file *CHDAGE_data_description.txt*:
+
+* __CHD__ variabile dipendente binaria: 1 se il disturbo è presente, 0  se il disturbo è assente;
+
+* __AGE__ variabile indipendente ( continua ).
+
+Sito da cui trarre dati e dataset http://www.umass.edu/statdata/statdata/
+
+__Soluzione__
+
+Importiamo i dati.
+
+```{r load_chd, eval = TRUE, collapse = TRUE }
+chd = read.table( "CHDAGE_data.txt", head = TRUE )
+
+str( chd )
+
+head( chd )
+
+attach( chd )
+```
+
+Visualizziamo i dati.
+
+```{r vis_chd, eval = TRUE, collapse = TRUE }
+
+plot( AGE, CHD, pch = ifelse( CHD == 1, 3, 4 ),
+      col = ifelse( CHD == 1, 'forestgreen', 'red' ),
+      xlab = 'Age', ylab = 'CHD', main = 'CHD vs. Age', lwd = 2, cex = 1.5 )
+```
+
+Eseguiamo quindi un'analisi descrittiva del dataset.
+
+
+Per meglio comprendere la natura della relazione è opportuno suddividere i pazienti in classi d'età e calcolare la media della variabile dipendente in ciascuna classe.
+
+Inseriamo nel vettore x i limiti delle classi d'età che si vogliono creare ( questo passaggio è arbitrario, e va esguito con buon senso ).
+
+```{r div_class_age_chd, eval = TRUE, collapse = TRUE }
+min( AGE )
+max( AGE )
+
+x  = c( 20, 29, 34, 39, 44, 49, 54, 59, 70 )
+
+# Calcoliamo i punti medi degli intervalli che abbiamo creato
+mid = c( ( x [ 2:9 ] + x [ 1:8 ] )/2 )
+
+# Suddividiamo i dati nelle classi che abbiamo creato
+GRAGE = cut( AGE, breaks = x, include.lowest = TRUE, right = FALSE )
+GRAGE
+```
+
+Calcoliamo quindi la media della variabile AGE stratificata e sovrapponiamo i valori di y al grafico precedente.
+
+```{r vis_graage_chd, eval = TRUE, collapse = TRUE }
+y = tapply( CHD, GRAGE, mean )
+y
+
+
+plot( AGE, CHD, pch = ifelse( CHD == 1, 3, 4 ),
+      col = ifelse( CHD == 1, 'forestgreen', 'red' ),
+      xlab = 'Age', ylab = 'CHD', main = 'CHD vs. Age', lwd = 2, cex = 1.5 )
+points( mid, y, col = "blue", pch = 16 )
+```
+
+Dal grafico si intuisce la natura della relazione fra AGE e CHD.
+
+Identifichiamo un modello che descriva adeguatamente i nostri dati. Il modello più opportuno è un modello lineare generalizzato con link function di tipo `logit`.
+
+```{r glm_chd, eval = TRUE, collapse = TRUE }
+help( glm )
+
+mod = glm( CHD ~ AGE, family = binomial( link = logit ) )
+summary( mod )
+```
+
+Il modello stimato è quindi:
+$$
+\text{logit}( \pi )  = -5.30945 + 0.11092 \cdot \text{AGE}
+$$
+in cui $\pi$ è la probabilità che CHD sia pari ad 1.
+
+Calcoliamo i valori stimati per il logit della probabilità di avere disturbi coronarici ( sono i logit di $\pi_i$, che giustamente hanno un range tipico di una variabile continua ).
+
+```{r lin_pred_chd, eval = TRUE, collapse = TRUE }
+mod$linear.predictors
+```
+
+Caliamo i valori stimati per la probabilità di avere disturbi coronarici ( che coincidono con gli esponenziali dei valori ottenuti al punto prima ). Sono le $\pi_i$ predette, pertanto comprese in [ 0, 1 ].
+
+```{r fitt_val_chd, eval = TRUE, collapse = TRUE }
+mod$fitted.values
+```
+
+Facciamo un grafico della predizione del modello.
+```{r vis_pred_chd, eval = TRUE, collapse = TRUE }
+plot( AGE, CHD, pch = ifelse( CHD == 1, 3, 4 ),
+      col = ifelse( CHD == 1, 'forestgreen', 'red' ),
+      xlab = 'Age', ylab = 'CHD', main = 'CHD vs. Age', lwd = 2, cex = 1.5 )
+points( mid, y, col = "blue", pch = 16 )
+lines( AGE, mod$fitted, col = 'darkblue' )
+```
+
+__Interpretazione dei coefficienti__ 
+
+Uno dei motivi per cui la tecnica di regressione logistica è largamente diffusa, specialmente
+in ambito clinico, è che i coefficienti del modello hanno una naturale interpretazione in termini di __odds ratio__ ( nel seguito __OR__ ).
+
+Si consideri un predittore x dicotomico a livelli 0 e 1.
+Si definisce odds che y = 1 fra gli individui con x = 0 la quantità:
+
+$$
+            \frac{\mathbb{P}( y = 1 | x = 0 )}{  1 - \mathbb{P}( y = 1 | x = 0 )}.
+$$
+
+Analogamente per i soggetti con x = 1, l'odds che y = 1 è:
+
+$$
+          \frac{\mathbb{P}( y = 1 | x = 1 )}{  1 - \mathbb{P}( y = 1 | x = 1 )}.
+$$
+
+L'OR è definito come il rapporto degli odds per x = 1 e x = 0.
+
+Dato che:
+
+$$
+\mathbb{P}( y = 1 | x = 1 ) = \frac{\exp( \beta_0 + \beta_1 \cdot x)}{ 1 + \exp( \beta_0 + \beta_1\cdot x )}
+$$
+$$
+      \mathbb{P}( y = 1|x = 0 ) = \frac{\exp( \beta_0 )}{ 1 + \exp( \beta_0 ) }
+$$
+
+Il che implica:
+
+$$
+ \text{OR} = \exp( \beta_1 )
+$$
+
+Si possono costruire intervalli di confidenza e generalizzazioni al caso di variabile x con più categorie in modo immediato.
+
+Calcoliamo quindi l'OR relativo a AGE.
+
+```{r summ_chd, eval = TRUE, collapse = TRUE }
+summary( mod )
+```
+
+Il coefficiente della variabile AGE vale 0.111.
+Quindi l'OR per un incremento di 10 anni d'età è:
+
+```{r OR_chd, eval = TRUE, collapse = TRUE }
+exp( 10 * coef( mod ) [ 2 ] )
+```
+
+per ogni incremento di 10 anni d'età, il rischio di disturbo coronarico aumenta di 3 volte circa.
+
+__N.B.__: il modello sottointende che il logit sia lineare nella variabile età, ossia che l'OR fra persone di 20 contro 30 anni sia lo stesso che fra individui di 40 contro 50 anni.
+
+__IC per la regressione logistica__
+
+Calcoliamo un intervallo di confidenza al $95\%$ per l'OR per un incremento di 10 anni d'età.
+
+```{r IC_chd, eval = TRUE, collapse = TRUE }
+alpha = 0.05
+qalpha =  qnorm( 1 - alpha/2 )
+qalpha
+
+IC.sup = exp( 10 * coef( mod ) [ 2 ]  + qalpha * 10 * summary( mod )$coefficients[ 2, 2 ] )
+IC.inf = exp( 10 * coef( mod ) [ 2 ] - qalpha * 10 * summary( mod )$coefficients[ 2, 2 ] )
+c( IC.inf, IC.sup )
+```
+
+Per costruire in R l'intervallo di confidenza del logit si può partire dal calcolo della matrice di covarianza dei parametri $\beta$ stimati:
+
+```{r vcov_chd, eval = TRUE, collapse = TRUE }
+V = vcov( mod )
+V
+```
+
+Intervallo di confidenza in corrispondenza di un valore di x ( ad esempio x = 50 anni ).
+
+```{r plot_IC_chd, eval = TRUE, collapse = TRUE }
+x = 50
+
+# errore standard
+predict( mod, data.frame( AGE = 50 ), se = TRUE )
+
+# oppure
+sqrt( V [ 1, 1 ]  + x^2 * V [ 2, 2 ]  + 2 * x * V [ 1, 2 ] )
+
+# Rappresentazione grafica dell'intervallo di confidenza ( al 95% ) della regressione
+
+# griglia di valori di x in cui valutare la regressione
+grid = ( 20:69 )
+
+se = predict( mod, data.frame( AGE = grid ), se = TRUE )
+# errori standard corrispondenti ai valori della griglia
+
+help( binomial )
+gl = binomial( link = logit )  # funzione di link utilizzata
+# Family objects provide a convenient way to specify the details of the models
+# used by functions such as glm.
+
+
+plot( mid, y, col = "red", pch = 3, ylim = c( 0, 1 ), ylab = "Probability of CHD",
+      xlab = "AGE", main = "IC per la Regressione Logistica" )
+lines( grid, gl$linkinv( se$fit ) )
+lines( grid, gl$linkinv( se$fit - qnorm( 1-0.025 ) * se$se ), col = "red", lty = 2 )
+lines( grid, gl$linkinv( se$fit + qnorm( 1-0.025 ) * se$se ), col = "red", lty = 2 )
+```
+
+
+__N.B.__ la funzione `gl$linkinv` permette di ottenere il valore delle probabilità a partire dalla link function (logit).
+
+
+__Goodness of fit__
+
+Varie tecniche sono state sviluppate e confrontate per stabilire la bontà del fit di una regressione logistica. Problema: tali tecniche soffrono di una limitata potenza ( tipicamente non superiore al $50\%$ ) per campioni di dimensione $n < 400$.
+
+Se la variabile indipendente è categorica si possono paragonare i valore di Devianza del modello fittato con il valore critico di una distribuzione $\chi^2( n-p )$,  dove p è il numero di parametri del modello.
+Se D è maggiore del valore critico si rifiuta l'ipotesi nulla che il modello sia un buon fit.
+
+Se la variabile indipendente è continua ( es in questione ), la procedura precedente perde di validità e i valori P che si ottengono non sono corretti. L'alternativa che R fornisce richiede l' installazione di due librerie supplementari ( `Design` e `Hmisc `), che contengono le funzioni lrm e residuals per calcolare tale statistica.
+
+```{r gof_chd, eval = TRUE, collapse = TRUE }
+#library( rms )
+#help( lrm )
+
+mod2 = lrm( CHD ~ AGE, x = TRUE, y = TRUE )
+mod2
+
+anova( mod2 )
+```
+
+La funzione `lrm` è una procedura alternativa per fittare una regressione logistica.
+I risultati coincidono con quelli ottenuti in precedenza. Il test di goodness-of-fit si esegue con la chiamata:
+
+```{r res_chd, eval = TRUE, collapse = TRUE }
+#help(residuals.lrm)
+
+residuals( mod2, "gof" )
+```
+
+dal valore di Z ( e del valore P associato ) si conclude che l'ipotesi $H_0$ che il modello sia un buon fit non può essere rifiutata.
+
+Alternativamente possiamo usare come GOF test, il test di Hosmer-Lemeshow.
+
+
+```{r res_hosl_chd, eval = TRUE, collapse = TRUE }
+hoslem.test( mod$y, fitted( mod ), g = 10 )
+```
+
+In questo test dobbiamo scegliere g, numero di gruppi. Nel paper originale è suggerito di scegliere $g > p$, in questo caso quindi $g > 2$. Si vede che, anche cambiando g, giungiamo alla stessa conlusione, ovvero il modello fitta bene i dati. In generale la scelta del numero di gruppi a priori è un limite di questo test.
+
+
+##---------------------------------------------------------------------------------------------------
+##2. Regressione logistica multipla
+##---------------------------------------------------------------------------------------------------
+
+In questo esercizio analizzeremo un dataset clinico inerente al peso di neonati.
+Lo scopo dello studio consiste nell'identificare i fattori di rischio associati con il partorire bambini di peso inferiore ai 2500 grammi ( low birth weight ). I dati si riferiscono a n = 189 donne.
+
+Le variabili del database sono descritte nel file "LOWBWT_data_description.txt":
+
+* __LOW__: variabile dipendente binaria ( 1 se il neonato pesa meno di 2500 grammi, 0 viceversa );
+
+* __AGE__, __LWT__, __FTV__ variabili indipendenti continue;
+
+* __RACE__ variabile indipendente discreta a 3 livelli.
+
+__Soluzione__
+
+Importiamo i dati.
+
+```{r load_lowbwth, eval = TRUE, collapse = TRUE }
+lw = read.table( "LOWBWTdata.txt", head = TRUE )
+attach( lw )
+```
+
+```{r mod_lowbwth, eval = TRUE, collapse = TRUE }
+RACE   = factor( RACE )  # tratto la variabile RACE come categorica
+
+mod.low = glm( LOW ~ LWT + RACE + AGE + FTV, family = binomial( link = logit ) )
+summary( mod.low )
+```
+
+Se ci si attiene alla sola significatività statistica si conclude che è possibile fittare un modello 'parsimonioso', contenente la sola variabile indipendente LWT. Tuttavia, come nel caso di regressione lineare multipla, l'inclusione di una variabile nel modello può avvenire per motivi differenti. Ad esempio, in questo caso, la variabile RACE è considerata in letteratura come importante nel predire l'effetto in questione, quindi la si include nel modello ristretto.
+
+```{r mod2_lowbwth, eval = TRUE, collapse = TRUE }
+mod.low2 = glm( LOW ~ LWT + RACE, family = binomial( link = logit ) )
+
+summary( mod.low2 )
+```
+
+Notiamo che AIC diminuisce e anche RACE acquista significatività.
+
+```{r cfr_mod_lowbwth, eval = TRUE, collapse = TRUE }
+anova( mod.low2, mod.low, test = "Chisq" )
+```
+
+Non c'è motivo di ritenere che il modello contenente solamente LWT e RACE sia meno informativo del modello completo.
+
+
+__Odds ratio__ 
+
+Il predittore RACE è discreto a 3 livelli. In questo caso il livello 1 ( RACE = White ) viene assunto come categoria di riferimento.
+
+```{r or_black_white_lowbwth, eval = TRUE, collapse = TRUE }
+model.matrix( mod.low2 ) [ 1:15, ]
+
+# OR 2 vs 1 ( Black vs White )
+exp( coef( mod.low2 ) [ 3 ] )
+```
+
+Le donne nere sono una categoria con rischio di parto prematuro quasi 3 volte superiore alle donne bianche.
+
+```{r or_other_white_lowbwth, eval = TRUE, collapse = TRUE }
+# OR 3 vs 1 ( Other vs White )
+exp( coef( mod.low2 ) [ 4 ] )
+```
+
+Le donne di altre etnie sono una categoria con rischio di parto prematuro circa 1.5 volte superiore alle donne bianche.
+
+Facciamo un check sul GOF del modello.
+
+```{r gof_lowbwth, eval = TRUE, collapse = TRUE }
+mod.low2lrm = lrm( LOW ~ LWT + RACE, x = TRUE, y = TRUE )
+residuals( mod.low2lrm, "gof" )
+
+hoslem.test( mod.low2$y, fitted( mod.low2 ), g = 6 )
+#g > 3
+```
+
+Anche in questo caso, possiamo concludere che il modello dà un buon fit dei dati.
+
+
+__Tabelle di classsificazione__
+
+Un modo spesso utilizzato per presentare i risultati di un fit tramite regressione logistica sono le tabelle di classificazione. In queste tabelle i dati vengono classificati secondo due chiavi:
+
+__1.__ il valore della variabile dipendente dicotoma y;
+
+__2.__ il valore di una variabile dicotoma $y_{mod}$, che si deriva dalla stima della probabilità ottenuta dal modello.
+I valori di questa variabile si ottengono confrontando il valore della probabilità con un cut-off ( valore usuale 0.5 )
+
+```{r class_lowbwth, eval = TRUE, collapse = TRUE }
+soglia = 0.5
+
+valori.reali  = lw$LOW
+valori.predetti = as.numeric( mod.low2$fitted.values > soglia )
+# 1 se > soglia, 0 se < = soglia
+valori.predetti
+
+tab = table( valori.reali, valori.predetti )
+
+tab
+
+# % di casi classificati correttamente:
+round( sum( diag( tab ) ) / sum( tab ), 2 )
+
+# % di casi misclassificati:
+round( ( tab [ 1, 2 ] + tab [ 2, 1 ] ) / sum( tab ), 2 )
+```
+
+__SENSITIVITA'__:
+$$
+\mathbb{P}( predetto = 1 | reale = 1 )
+$$
+
+```{r sens_lowbwth, eval = TRUE, collapse = TRUE }
+sensitivita = tab [ 2, 2 ] /( tab [ 2, 1 ] + tab [ 2, 2 ] )
+sensitivita
+```
+
+__SPECIFICITA'__: 
+$$
+\mathbb{P}( predetto = 0 | reale = 0 )
+$$
+```{r spec_lowbwth, eval = TRUE, collapse = TRUE }
+specificita = tab [ 1, 1 ] /( tab [ 1, 2 ] + tab [ 1, 1 ] )
+specificita
+```
+
+
+##---------------------------------------------------------------------------------------------------
+##3. Curva ROC
+##---------------------------------------------------------------------------------------------------
+
+Costruire la Curva ROC a partire dai valori predetti per la risposta dal modello `mod.low2` dell'analisi della variabile LOWBT.
+
+__Soluzione__
+
+```{r ROC_lowbwth, eval = TRUE, collapse = TRUE }
+fit2 = mod.low2$fitted
+
+
+#media campionaria della prob di sopravvivenza nel campione
+
+soglia_roc  = seq( 0, 1, length.out = 2e2 )
+lens = length( soglia_roc )-1
+ascissa_roc  = rep( NA, lens )
+ordinata_roc = rep( NA, lens )
+
+for ( k in 1 : lens )
+{
+  soglia = soglia_roc [ k ]
+
+  classification = as.numeric( sapply( fit2, function( x ) ifelse( x < soglia, 0, 1 ) ) )
+
+  #  ATTENZIONE, voglio sulle righe il vero e sulle colonne il predetto
+  # t.misc = table( lw$LOW, classification )
+
+  ordinata_roc[ k ] = sum( classification[ which( lw$LOW == 1 ) ] == 1 ) /
+    length( which( lw$LOW == 1 ) )
+
+  ascissa_roc[ k ] = sum( classification[ which( lw$LOW == 0 ) ] == 1 ) /
+    length( which( lw$LOW == 0 ) )
+
+  # ordinata_roc [ k ]  = t.misc [ 1, 1 ] /( t.misc [ 1, 1 ] + t.misc [ 1, 2 ] )
+  #
+  # ascissa_roc [ k ]  = t.misc [ 2, 1 ] /( t.misc [ 2, 1 ] + t.misc [ 2, 2 ] )
+}
+```
+
+Visualizziamo la curva ROC.
+
+```{r vis_ROC_lowbwth, eval = TRUE, collapse = TRUE }
+
+plot( ascissa_roc, ordinata_roc, type = "l", xlab = "1 - Specificity", ylab = "Sensitivity",
+      main = "Curva ROC", lwd = 2, col = 'darkblue', ylim = c( 0, 1 ), xlim = c( 0, 1 ) )
+abline( h = c( 0, 1 ), v = c( 0, 1 ), lwd = 1, lty = 2, col = 'red' )
+abline( a = 0, b = 1, lty = 2, col = 'black' )
+
+# qual era il nostro punto?
+abline( v = 1 - specificita,  h = sensitivita, lty = 3, col = 'blue' )
+points( 1 - specificita, sensitivita, pch = 4, lwd = 3, cex = 1.5, col = 'blue' )
+```
+
+
+

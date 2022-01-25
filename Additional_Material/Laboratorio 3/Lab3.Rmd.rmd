@@ -1,0 +1,643 @@
+---
+title: "Laboratorio con `R` - 3"
+subtitle: "Metodi e Modelli per l'Inferenza Statistica - Ing. Matematica - a.a. 2018-19"
+author: 
+date: 31/05/2019
+output: pdf_document
+pdf_document: yes
+number_sections: yes
+toc: no
+urlcolor: blue
+---
+
+##---------------------------------------------------------------------------------------------------
+##0. Librerie
+##---------------------------------------------------------------------------------------------------
+```{r load_libraries, eval = TRUE, collapse = TRUE }
+library( MASS )
+library( car ) 
+library( corrplot )
+library(ElemStatLearn)
+library( faraway )
+library( lars )
+library( Matrix )
+```
+
+## Reference:
+Friedman, J., Hastie, T., & Tibshirani, R. (2001). The elements of statistical learning (Vol. 1, pp. 337-387). New York: Springer series in statistics.
+
+## Teoria: Multicollinearità e Ridge regression
+
+Una delle ipotesi alla base del modello di regressione classico (OLS) è che la matrice delle variabili esplicative Z abbia rango pieno. Se il rango di questa matrice è inferiore a r+1 si ha che $|Z^T Z|=0$ e non si può calcolare l'inversa di $Z^TZ$. Ne consegue che la stima dei coefficienti di regressione non può essere determinata univocamente. In questa circostanza si è in presenza di multicollinearità.
+
+La multicollinearità fa esplodere la variabilità delle stime dei parametri di regressione. La Ridge Regresion può essere introdotta come metodo che, penalizzando nella verosimiglianza la norma dei regressori, ne controlla la magnitudo.
+
+Si parla di multicollinearità quando si è in presenza di una forte dipendenza lineare tra due o più regressori.
+
+
+La presenza di multicollinearità causa __problemi di stima__. Considerando il metodo dei minimi quadrati, se vi è multicollinearità, la matrice $Z^TZ$ risulta quasi singolare e quindi si ha un mal-condizionamento del sistema di equazioni che dovrebbero fornirci la stima dei parametri del modello; questi problemi si riflettono chiaramente anche nella scarsa affidabilità degli IC/test di significatività dei predittori. Chiaramente, ci sono anche problemi di previsione: risulta inutile fare previsione per un valore della variabile di risposta y, proprio per l'inaffdabilità dei valori di $\hat{\beta}$.
+
+
+__Collinearity detection__
+Problemi di multicollinearità possono essere individuati con i seguenti metodi:
+
+__1.__ calcolando la __matrice di correlazione__;
+
+__2.__ calcolando il __numero di condizionamento__ della matrice $Z^TZ$;
+
+__3.__ calcolandi i __VIF__. La varianza stimata del j-esimo coefficiente di regressione può essere scritta come:
+
+$$
+Var( \beta_j ) = \frac{S^2}{ ( n-1 ) \cdot S_j^2 } \cdot \frac{1}{ 1-R_j^2 }
+$$
+
+dove $S^2$ è la varianza dell'errore, $S_j^2$ è la varianza di $x_j$ ed $R_j^2$ è il coefficiente di determinazione calcolato facendo la regressione di $x_j$ sulle altre variabili esplicative $x_i$.
+La quantità:
+
+$$
+VIF = \frac{1}{ 1-R^2_j }
+$$
+
+E' chiamata fattore di inflazione di varianza per $\beta_j$ . I VIF sono utilizzati come misure di multicollinearità, perché la radice quadrata dei VIF indica di quanto l'intervallo di confidenza, costruito su ciascuno dei coefficienti di regressione $\beta_j$ è più grande rispetto alla situazione di dati non correlati. In particolare, quindi, le variabili che risultano maggiormente sospette di provocare il fenomeno
+della multicollinearità sono quelle che presentano VIF più elevato.
+
+
+__Collinearity resolution__
+
+Per risolvere il problema della multicollinearità ci sono diverse strade che possono essere percorse:
+
+__1.__ l'esclusione dal modello delle variabili correlate ovvero di quelle per le quali la stima della varianza del coefficiente di regressione associato è elevata ( __riduzione di modello__);
+
+__2.__ l'uso della __ridge regression__. L'uso della ridge regression consente di ottenere delle stime stabili dei coefficienti di regressione in presenza di multicollinearità con la matrice $Z^TZ$ assai prossima alla singolarità.
+
+Lo stimatore di tipo ridge è definito come:
+$$
+\hat{\beta}_R = [(Z^TZ)+\lambda\cdot I]^{-1}\cdot Z^Ty
+$$
+
+dove $\lambda \in (0,1)$ è lo __shrinkage parameter__.
+
+La scelta di questa costante viene effettuata in base all'intensità della multicollinearità esistente, cercando di garantire un opportuno bilanciamento tra la varianza e la distorsione dello stimatore. Un metodo esplorativo consiste nella costruzione di un grafico che rappresenti gli elementi del vettore $\hat{\beta}_R$ (sull'asse delle ordinate) in funzione di $\lambda$. Si ritiene che le curve di tale grafico, detto traccia della regressione ridge, tendano a stabilizzarsi in corrispondenza di valori accettabili di lambda.
+
+__3.__ l'uso della principal component regression ( __PCR__ ): si estraggono le 
+	   componenti principali dai regressori originali (queste nuove variabili 
+	   sono per definizione tra loro ortogonali) e si fa regredire la variabile
+	   risposta su queste [Approfondimento e possibile RC];
+
+__4.__ l'aggiunta di nuove osservazioni che rendano la matrice Z a rango pieno (anche se questo rimedio non è sempre applicabile).
+
+
+
+##---------------------------------------------------------------------------------------------------
+##1. Collinearity detection: formaggio dataset
+##---------------------------------------------------------------------------------------------------
+
+Si considerino i dati contenuti nel file `formaggio.txt`. Essi sono relativi alle concentrazioni di varie sostanze chimiche in 30 campioni di formaggio Cheddar, prodotto nella zona LaTrobe Valley dello stato Victoria in Australia.
+
+Come variabile di risposta è stata considerata una misura soggettiva del
+gusto per ogni campione. E' noto, infatti, che man mano che il formaggio
+matura, hanno luogo diversi processi chimici che determinano il sapore del
+prodotto finale.
+
+Le variabili prese in considerazione sono:
+
+* __Taste__ Punteggio soggettivo del test sul gusto, ottenuto combinando i punteggi dei diversi assaggiatori.
+
+*	__Acetic__ Logaritmo naturale della concentrazione di acido acetico.
+
+*	__H2S__  Logaritmo naturale della concentrazione di acido solfidrico.
+
+* __Lactic__ Concentrazione di acido lattico.
+
+
+Eseguire un'analisi dei dati mediante regressione lineare multipla, individuando, se presenti collinearità fra i regressori.
+
+__Soluzione__
+
+Importiamo i dati.
+
+```{r load_formaggio, eval = TRUE, collapse = TRUE }
+formaggio = read.table( "formaggio.txt", header = TRUE )
+
+head( formaggio )
+
+str( formaggio )
+
+names( formaggio )
+
+dim( formaggio )
+
+attach( formaggio )
+```
+
+Eseguiamo un'analisi esplorativa dei dati.
+
+```{r plot_formaggio, eval = TRUE, collapse = TRUE }
+
+pairs( formaggio, pch = 16 )
+```
+
+Tutte le variabili sembrano piuttosto correlate (positivamente).
+
+Verifichiamo quindi la presenza di __multicollinearità__.
+
+Il modo migliore per agire, in questo caso, è di vedere quali sono le variabili esplicative responsabili del fenomeno di multicollinearità ed escluderle dall'analisi; questo modo di procedere, dal punto di vista della spiegazione della variabile di risposta a partire delle variabili esplicative, porta ad una perdita di informazione molto piccola.
+
+
+__ANALISI DI MULTICOLLINEARITA'__
+
+__1.__ Matrice di correlazione;
+
+```{r cor_formaggio, eval = TRUE, collapse = TRUE }
+cor_form = cor( formaggio )
+
+cor_form
+
+#library(corrplot)
+
+corrplot( cor_form, method = 'ellipse' )
+```
+
+Il grafico della matrice di correlazione conferma l'intuizione che avevamo avuto osservando il grafico pairs, ovvero buon livello di correlazione positiva fra i regressori.
+
+Domanda: potrei guardare la matrice di covarianza invece?
+
+__2.__ Calcolo del numero di condizionamento;
+
+```{r reg_full_formaggio, eval = TRUE, collapse = TRUE }
+reg.formaggio = lm( Taste ~ Acetic + H2S + Lactic )
+
+Z = model.matrix( reg.formaggio )
+
+# Stima affidabile
+# library( Matrix )
+cond = condest( t( Z ) %*% Z )
+cond  # >> 30 = > presenza di collinearità
+
+# Oppure, usando la definizione (ma la stima non è affidabile nel
+# caso di matrice mal condizionata):
+eigs  = eigen( t( Z ) %*% Z )$values
+cond = sqrt( max( eigs ) / min( eigs ) )
+```
+
+Il fatto che il numero di condizionamento sia 12885.76, valore $>>30$, conferma la forte presenza di collinearità fra i regressori.
+
+__N.B.__ Dato che la matrice è mal condizionata, la stima del numero di condizionamento manuale non è affidabile, è quindi consigliabile usare il comando `condest`.
+
+__3.__ Calcolo dei VIF;
+
+```{r vif_formaggio, eval = TRUE, collapse = TRUE }
+reg_acetic = lm( Acetic ~  H2S + Lactic )
+
+1/( 1-summary( reg_acetic )$r.squared ) 
+
+#library( car )
+vif( reg.formaggio )
+
+var_ac = var( Acetic )
+
+S_res = summary( reg.formaggio )$sigma^2 
+
+var_beta_ac = S_res/( ( 30 - 1 )* var_ac ) * 1/( 1-summary( reg_acetic )$r.squared ) 
+var_beta_ac
+
+summary( reg.formaggio )$coef[ 2, 2 ]^2
+```
+
+Considerato che, solitamente, si ritengono responsabili del fenomeno di multicollinearità quelle variabile esplicative che producono valori dei VIF superiori a 10, i VIF in questo caso non sono informativi.
+
+
+Vagliamo ora le possibili soluzioni al problema della multicollinearità:
+
+__1.__ Model selection;
+
+Procediamo con un'automatica stepwise regression.
+
+```{r step_formaggio, eval = TRUE, collapse = TRUE }
+step( reg.formaggio, direction = "backward" ) 
+```
+
+Sembra suggerire di rimuovere la variabile Acetic.
+
+Per capire il motivo, proviamo a guardere l'added variable plot, che ci spiega l'effetto di ogni predittore, depurato della collinearità con gli altri, sulla variabilità di Y che non viene spiegata dagli altri (plot tra i residui di Y ~ tutti gli altri predittori vs. residui di $X_i$ ~ tutti gli altri predittori ).
+
+```{r avplot_formaggio, eval = TRUE, collapse = TRUE }
+ac_reg = summary( lm( Acetic ~ H2S + Lactic ) )
+h2s_reg = summary( lm( H2S ~ Acetic + Lactic ) )
+lac_reg = summary( lm( Lactic ~ H2S + Acetic ) )
+
+#costruzione manuale grafici avPlots
+#plot( ac_reg$residuals, reg.formaggio$residuals )
+#plot( h2s_reg$residuals, reg.formaggio$residuals )
+#plot( lac_reg$residuals, reg.formaggio$residuals )
+
+
+avPlots( reg.formaggio )
+```
+
+Pare che Acetic sia la variabile con meno contenuto predittivo unico tra quelle disponibili (linea blu più vicina allo 0).
+
+```{r reg_mod_red_formaggio, eval = TRUE, collapse = TRUE }
+reg1.formaggio = lm( Taste ~ H2S + Lactic )
+
+summary( reg1.formaggio )
+
+anova( reg.formaggio, reg1.formaggio )
+```
+
+Sulla riduzione del modello possiamo fare i seguenti commenti:
+
+* $R^2$ ed $R^2_{adj}$ non sono cambiati in modo sostanziale ( rimangono accettabili sebbene non altissimi );
+
+* La significatività complessiva del modello è aumentata;
+
+* I regressori sono ora entrambi molto significativi;
+
+* I gdl (o df) sono 27 come correttamente ci aspettiamo avendo 30 osservazioni e 2 covariate (oltre all'intercetta);
+
+* F-test eseguito con comando `anova` conferma la riduzione del modello, ovvero non c'è differenza nel passare da un modello all'altro (p-value pari a 0.942, molto alto, quindi prediligo modello più semplice).
+
+__Verifica delle ipotesi__
+
+```{r plot_ip_formaggio, eval = TRUE, collapse = TRUE }
+
+par( mfrow = c( 2, 2 ), mar = c( 5, 4, 5, 4 ) + 0.1 )
+plot( reg1.formaggio )
+
+shapiro.test( reg1.formaggio$residuals )
+```
+
+Le assunzioni di Normalità ed omoschedasticità sembrano rispettate.
+
+
+
+##---------------------------------------------------------------------------------------------------
+## 2. Ridge regression 
+##---------------------------------------------------------------------------------------------------
+  A macroeconomic data set which provides a well-known example for a highly collinear regression. A data frame with 7 economical variables, observed yearly from 1947 to 1962 ( n = 16 ).
+
+* __GDP.deflator__: GDP implicit price deflator ( 1954 = 100 )
+
+* __GDP__: Gross National Product.
+
+* __Unemployed__: number of unemployed.
+
+* __ArmedForce__: number of people in the armed forces.
+
+* __Population__: 'noninstitutionalized' population $\geq$ 14 years of age.
+
+* __Year__: the year ( time ).
+
+* __Employed__: number of people employed.
+
+Import and explore the data. Fit the best linear model for predicting the number of employed people (*Employed*).  
+
+__Solution__
+```{r load_longley, eval = TRUE, collapse = TRUE }
+library( faraway )
+
+#data( longley )
+longley = read.table("LONGLEYdata.txt", header=T)
+
+#help( longley )
+
+#str( longley )
+```
+
+First of all, we should explore the data (graphically).
+
+```{r plot_longley, eval = TRUE, collapse = TRUE }
+
+pairs( longley, pch = 16 )
+```
+
+There is a clear linear dependence between: GDP, GDP.deflator, year and Employed.
+
+Let's fit the complete model for predicting the number of people employed.
+
+```{r lm_longley, eval = TRUE, collapse = TRUE }
+g = lm( employed ~ ., longley )
+summary( g )
+```
+
+It seems a very good model: p-value $0.0002698$, Adjusted R-squared $0.8538$. However, there are some non-significant covariates (GDP.deflator, Population, GDP, anno). 
+This can be due to the linear dependence that we already detected from pairs plot.
+
+We can investigate possible collinearity among variables in the following ways:
+
+__1.__ Checking the __correlation matrix__ first ( we round to 3 digits for convenience ).
+
+```{r corm_longley, eval = TRUE, collapse = TRUE }
+corm = round( cor( longley [ , -1 ] ), 3 )
+corm
+
+corrplot( corm, method = 'ellipse' )
+```
+
+We immediately see that there is high correlation among: GDP.deflator, GDP, Population and Year.
+
+__N.B__ We have already inferred this result from pairs plot.
+
+__2.__ Checking the __condition number__  of $Z^TZ$ through *eigen decomposition*.
+
+```{r eigvalue_longley, eval = TRUE, collapse = TRUE }
+P = ncol( longley )
+N = nrow( longley )
+Z = model.matrix(g)
+
+# Stima affidabile
+cond = condest( t( Z ) %*% Z )
+cond
+
+# Oppure, usando la definizione 
+#(ma la stima NON è affidabile nel caso di matrice mal condizionata):
+eigs  = eigen( t( Z ) %*% Z )$values
+cond = sqrt( max( eigs ) / min( eigs ) )
+
+cond
+```
+
+The condition number is very high, which confirms that there is high collinearity among variables.
+
+__3.__ __VIF__.
+
+```{r vif_longley, eval = TRUE, collapse = TRUE }
+library( car )
+vif( g )
+```
+
+There's definitely a lot of variance inflation. For example, we can interpret
+$\sqrt{ 123.2 } = 11.1$ as telling us that the standard error for GDP is about 11 times larger than it would have been without collinearity.
+
+We can *fix* collinearity problems as follows:
+
+__1.__ Reducing the model. 
+
+```{r modred_longley, eval = TRUE, collapse = TRUE }
+step( g )
+
+mod_red = lm( employed ~ ArmedForce + pop15 + unemployed + GDP, longley )
+
+summary( mod_red )
+
+vif( mod_red )
+
+cor( model.matrix( mod_red ) [ , -1 ] )
+```
+
+Finally, let's chceck the normality and homoskedasticity hypothesis for the reduced model.
+
+```{r ipot_longley, eval = TRUE, collapse = TRUE }
+
+qqnorm( mod_red$residuals/summary( mod_red )$sigma )
+abline( 0, 1, col='red' )
+
+shapiro.test( mod_red$residuals/summary( mod_red )$sigma )
+
+
+plot( mod_red$fitted.values, mod_red$residuals/summary( mod_red )$sigma )
+abline( h = 0, col='red' )
+```
+
+Hypotheses are respected, but we have to carefully interpret this output because we have very few data (16).
+
+
+
+
+
+__2.__ __RIDGE REGRESSION__: regularizing the OLS (Ordinary Least Squares) problem by *penalising* the magnitude of $\beta$ term. This corresponds to finding a *biased estimator* of the $\beta$ vector instead of the unbiased, traditional OLS-based one. In practice, by allowing the estimator to have some bias, we are able to get a lower MSE by reducing the amount of variance of the original, zero-bias but high-variance OLS $\beta$ estimator. 
+
+```{r ridge_longley, eval = TRUE, collapse = TRUE }
+library( MASS )
+gr = lm.ridge( employed ~ ., longley, lambda = seq( 0, 1.5, 0.01 ) )
+
+names( gr )
+gr$lambda
+gr$coef
+```
+
+
+Visualization of ridge regression: trace plots.
+
+```{r ridge_plot_longley, eval = TRUE, collapse = TRUE }
+library(RColorBrewer)
+mycol = brewer.pal( 6, 'Dark2' )
+
+# Per gli appassionati, c'è pure il pacchetto wesanderson!
+#library(wesanderson)
+#mycol = wes_palette( 'Darjeeling', 6, type = 'continuous' )
+
+matplot( gr$lambda, t( gr$coef ), type = "l", xlab = expression( lambda ),
+         ylab = expression( hat( beta ) ),
+         main = "Ridge Traceplot", col = mycol, lwd = 2, lty = 1 )
+legend( 'topright', rownames( gr$coef ), col = mycol, lwd = 2, lty = 1 )
+abline( h = 0, lwd = 2, lty = 2 )
+```
+
+The optimal $\lambda$ is the value with which all $\hat{\beta}_s$ are stabilized.
+
+Various automatic selection for lambda are possible.
+
+```{r ridge_lam_sel_longley, eval = TRUE, collapse = TRUE }
+select( gr )
+
+matplot( gr$lambda, t( gr$coef ), type = "l", xlab = expression( lambda ),
+         ylab = expression( hat( beta ) ), 
+         main = "Ridge Traceplot", col = mycol, lwd = 2, lty = 1 )
+legend( 'topright', rownames( gr$coef ), col = mycol, lwd = 2, lty = 1 )
+abline( h = 0, lwd = 2, lty = 2 )
+abline( v = 0.68, lty = 2, col = 'red' )
+
+# se si vuole un altro valore di lambda diverso 
+# da quelli suggeriti dalle procedure automatiche.
+gr$coef[ , gr$lam == 0.68 ]
+```
+
+The best $\lambda$ seems to be 0.68.
+
+We now compare the estimates obtained with OLS ( $\lambda$ = 0 ) with the ones obtained with the ridge regression.
+
+```{r ridge_compare_longley, eval = TRUE, collapse = TRUE }
+gr$coef[ , 1 ]
+
+abs( ( gr$coef[ , gr$lam == 0.68 ] - gr$coef[ , 1 ] ) / gr$coef[ , 1 ] )
+```
+
+
+
+__Approfondimento PCR__
+
+Volendo percorre la strada della PCR estraiamo le componenti principali 
+(CP)22 delle variabili esplicative. Si ricorda che CP sono delle combinazioni lineari dei predittori, tra loro sono ortogonali e sono correlate con le variabili originarie. Ciascuna CP spiega una quota della varianza delle variabili originarie. 
+Per comodità calcoliamo le CP standardizzando i regressori e operiamo sulla matrice di correlazione:
+
+```{r pcr_longley, eval = TRUE, collapse = TRUE }
+cp = princomp( longley[ ,-1 ], cor = T )
+summary( cp )
+```
+
+La prima CP estratta spiega da sola più dell'$84\%$ della variabilità dei regressori, mentre le prime due quasi il $94\%$. 
+
+Vediamo ora l'identificazione delle CP esaminando le correlazioni con le variabili originali:
+
+```{r pcr_score_longley, eval = TRUE, collapse = TRUE }
+#coeff della proiezione delle variabili originarie
+#sul sistema di riferimento delle componenti principali
+cp$scores   
+cp$loadings 
+```
+
+la prima CP è correlata in modo abbastanza forte con tutti i regressori, con alcuni positivamente (Armed.force e unemployed) e con la maggior parte negativamente; 
+la seconda CP è correlata positivamente con pop15 e unemployed.
+
+Stimiamo la regressione multipla della variabile risposta sulle CP:
+
+```{r pcr_lm_longley, eval = TRUE, collapse = TRUE }
+fmcp = lm( longley$employed ~ cp$scores )
+summary( fmcp )
+```
+
+Da cui emerge un legame statisticamente significativo tra la risposta employed e le CP 2, 3 e 4. 
+
+Stimiamo il modello solo con questi regressori:
+
+```{r pcr_newmod_longley, eval = TRUE, collapse = TRUE }
+fmcp2 = lm( longley$employed ~ cp$scores[ ,2 ] + cp$scores[ ,3 ] + cp$scores[ ,4 ] )
+
+summary( fmcp2 ) 
+```
+
+__Approfondimento LASSO Regression__
+
+```{r lasso_longley, eval = TRUE, collapse = TRUE }
+#library(lars)
+longley.lasso = lars( as.matrix( longley[ ,-1 ] ), longley$employed,
+                      type = "lasso", trace = FALSE )
+
+
+
+plot( longley.lasso, plottype = 'coefficients' )
+
+G = cv.lars( as.matrix( longley[ ,-1 ] ), longley$employed, type = "lasso", trace = TRUE, K = 10 )
+
+coef( longley.lasso )
+```
+Per trovare l'ottimo, indaghiamo la CV MSE minore. Vediamo che il min CV MSE è tra 0.4 e 0.6, che corrisponde a selezionare 3 covariate, in particolare: ArmedForce, pop15, unemployed.
+
+##---------------------------------------------------------------------------------------------------
+##Ex. per casa: Prostate Cancer Data 
+##---------------------------------------------------------------------------------------------------
+
+Data to examine the correlation between the level of prostate-specific antigen and a number of clinical measures in men who were about to receive a radical prostatectomy.
+
+
+A data frame with 97 observations on the following 10 variables.
+
+* __lcavol__: log cancer volume;
+
+* __lweight__: log prostate weight;
+
+*	__age__: in years;
+
+*	__lbph__: log of the amount of benign prostatic hyperplasia;
+
+* __svi__: seminal vesicle invasion;
+
+* __lcp__:log of capsular penetration;
+
+*	__gleason__:a numeric vector;
+
+* __pgg45__:percent of Gleason score 4 or 5;
+
+* __lpsa__:response;
+
+* __train__:a logical vector.
+
+The last column indicates which 67 observations were used as the "training set" and which 30 as the test set, as described on page 48 in the book.
+
+__Source__
+*Stamey, T., Kabalin, J., McNeal, J., Johnstone, I., Freiha, F., Redwine, E. and Yang, N (1989) Prostate specific antigen in the diagnosis and treatment of adenocarcinoma of the prostate II. Radical prostatectomy treted patients, Journall of Urology 16: 1076?1083.*
+
+Investigate collinearity among predictors and fit a ridge and LASSO regression on data.
+
+__Solution__
+
+```{r load_prostate, eval = TRUE, collapse = TRUE }
+data( prostate ) 
+prostate[ 1:15, ]
+
+# Ridge Regression
+
+X = as.matrix( prostate[ ,1:8 ] )
+XtX = solve( t( X ) %*% X )
+
+autoval = eigen(XtX)
+autoval$val   # differenze di anche 3 ordini di grandezza
+
+num.cond = sqrt(max(autoval$val)/min(autoval$val))
+num.cond
+
+H = hat( X )
+
+lambda = seq( 0, 500, len = 100 )
+
+
+# Gradi di libertà equivalenti
+
+df = rep( 0, length( lambda ) )
+
+for ( i in 1 : length( lambda ) ){
+	
+  v = diag( H )/( diag( H ) + lambda[ i ] )
+	df[ i ] = sum( v )
+	
+}
+
+
+prostate.ridge = lm.ridge( prostate[ , 9 ] ~ as.matrix( prostate[ , 1:8 ] ),lambda = lambda )
+
+# Shrinkage dei coeff
+plot( prostate.ridge )
+abline( h=0, lwd = 2 )
+
+# Coeff vs gradi di libert? equivalenti
+plot( df, prostate.ridge$coef[1,],type='l',ylim=c(-0.5,1))
+
+for (j in 2:8){
+
+  points( df, prostate.ridge$coef[ j, ], col = j, type = 'l' )
+  
+}
+
+# Scelta del parametro
+select( prostate.ridge )
+
+abline( v = df[ which.min( prostate.ridge$GCV ) ] )
+
+l = prostate.ridge$kHKB
+v = diag( H )/( diag( H ) + l )
+dfl = sum( v )
+abline( v = dfl, col = 2 )
+
+
+
+#########################################################################
+
+# Lasso Regression
+
+prostate.lasso = lars( as.matrix( prostate[ , 1:8 ] ), as.matrix( prostate[ ,9 ] ),
+                       type = "lasso", trace = FALSE )
+
+
+plot( prostate.lasso )
+
+
+# Scelta del parametro
+G = cv.lars( as.matrix( prostate[ ,1:8 ] ), as.matrix( prostate[ ,9 ] ),
+             type = "lasso", trace = FALSE, K = 10 )
+
+coef( prostate.lasso )
+```
+
+Il CV MSE minore si realizza per $\lambda \geq 0.6$. Scegliamo quindi il modello più semplice che ha 5 predittori: lcavol, lweight, lbph, svi, lcp, pgg45.
+

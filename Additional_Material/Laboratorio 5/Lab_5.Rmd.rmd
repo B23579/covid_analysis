@@ -1,0 +1,346 @@
+---
+title: "Laboratorio con `R` - 5"
+subtitle: "Metodi e Modelli per l'Inferenza Statistica - Ing. Matematica - a.a. 2018-19"
+author: 
+date: 06/06/2019
+output: pdf_document
+pdf_document: yes
+number_sections: yes
+toc: no
+urlcolor: blue
+---
+
+##---------------------------------------------------------------------------------------------------
+##0. Librerie
+##---------------------------------------------------------------------------------------------------
+```{r load_libraries, eval = TRUE, collapse = TRUE }
+library( survival )
+```
+
+## Reference:
+Therneau, T. M., & Grambsch, P. M. (2013). Modeling survival data: extending the Cox model. Springer Science & Business Media.
+
+
+
+##---------------------------------------------------------------------------------------------------
+##1. Estimating the survival and hazard functions
+##---------------------------------------------------------------------------------------------------
+The hazard function $\lambda(t)$ is the nonparametric part of the Cox model.
+In this section we are going to show the most common estimator (in case of no covariates) of the cumulative hazard function: the Nelson-Aalen estimate.
+The cumulative hazard funtion is defined as:
+$$
+\Lambda(t) = \int_0^t \lambda( s ) \, \text{d}s
+$$
+The Nelson-Aalen estimate is:
+$$
+\hat{\Lambda}(t) = \sum_{i:t_i\leq t} \frac{\Delta\bar{N}(t_i)}{\bar{Y}(t_i)}
+$$
+in which $\Delta\bar{N}(t_i) = \bar{N}(t_i)-\bar{N}(t_i^-)$ represents the total number of events happened at time $t_i$, while $\bar{Y}(t_i)$ represents the total number of subjects at risk at time $t_i$.
+
+We show the computation of N-A, both manually and automatically, with the dataset used in the paper where this estimate has been proposed for the first time.
+The data regard the failure time of diesel generator fans. The goal of the study was to decide whether to replace the working fans with higher quality fans to prevent future failures. The engineering problem was to determine whether the failure rate was decreasing over time.
+
+
+We load the data.
+
+```{r load_rottdata, eval = TRUE, collapse = TRUE }
+load( 'fans.RData' )
+
+dim( fans )
+
+head( fans )
+```
+
+__Nelson-Aalen__
+
+```{r NA_rottdata, eval = TRUE, collapse = TRUE }
+time = sort( unique ( fans[ , 1 ] ) )
+
+length( time )
+
+table( fans[ ,2 ] ) #12 eventi, ergo 12 salti
+
+fans[ which( fans[ ,2 ] == "1" ), ]
+
+n = dim( fans )[ 1 ]
+
+Nelson_Aalen = rep( 0, length( time ) )
+var = rep( 0, length( time ) )
+N = rep( 0, length( time ) )
+Y = rep( 0, length( time ) )
+
+for( i in 1 : length( time ) )
+{
+  N[ i ] = length( which ( fans[ ,1 ] == time[ i ] & fans[ ,2 ] == "1" ) ) 
+  Y[ i ] = length( which ( fans[ ,1 ] >= time[ i ] ) )
+  
+  if( i ==1 )
+  {
+    Nelson_Aalen[ i ] = N[ i ]/Y[ i ]
+    var[ i ] = N[ i ]/( Y[ i ] )^2
+  }
+  else
+  {
+    Nelson_Aalen[ i ] = Nelson_Aalen[ i-1 ] + N[ i ]/Y[ i ]
+    var[ i ] = var[ i-1 ] + N[ i ]/( Y[ i ] )^2
+  }
+  print( c( i, Nelson_Aalen[ i ], var[ i ], time[ i ], N[ i ], Y[ i ] ) )
+} 
+
+plot( time, Nelson_Aalen, xlab = "hours x 10^3", ylab = "cumulative hazard" )
+
+check1 = 0
+check2 = dim( fans[ which( fans[ ,2 ] == "1" ), ] )[ 1 ]
+
+for ( i in 1 : n )
+{
+  index = which( time %in% fans[ i, 1] )
+  check1 = check1 + Nelson_Aalen[ index ]
+}
+
+check1
+check2
+sum(N)
+lambda_hat = length( which( fans[ ,2] == 1 ) )/sum( fans[ ,1] )
+
+cum_haz = basehaz( coxph( Surv( time, fail ) ~ 1, method = 'breslow', data = fans ), center = T )
+
+
+plot( cum_haz$time, cum_haz$hazard )
+points( time, Nelson_Aalen, col = 'red' )
+```
+
+Another important quantity in Survival Analysis is the Survival function:
+$$
+S(t) = \exp\{-\Lambda(t)\}
+$$
+Breslow suggested the following nonparametric estimator of the survival function:
+$$
+\hat{S}_B(t) = \exp\{-\hat{\Lambda}(t)\} 
+$$
+The Breslow estimator can be written as:
+$$
+\hat{S}_B(t) = \prod_{i: t_i< t } \exp\{-d\hat{\Lambda}(t_i)\}
+$$
+The Kaplan-Meier estimator is:
+$$
+\hat{S}_{KM}(t) = \prod_{i: t_i< t } [1-d\hat{\Lambda}(t_i)]
+$$
+
+__Kaplan-Meier__
+
+```{r KM_rottdata, eval = TRUE, collapse = TRUE }
+afit = survfit( Surv( time, fail ) ~ 1, data = fans, type = 'fleming-harrington')
+kfit = survfit( Surv( time, fail ) ~ 1, data = fans, type = 'kaplan-meier')
+summary( afit )
+summary( kfit )
+
+
+plot( kfit, mark.time = F ,  xlab = "Time", ylab="Survival" )
+lines( afit, lty=2, mark.time=F, col = 'blue')
+points( cum_haz$time, exp( -cum_haz$hazard ), col = 'red')
+```
+ 
+
+##---------------------------------------------------------------------------------------------------
+##2. Cox model
+##---------------------------------------------------------------------------------------------------
+In this section we are going to fit a Cox model (also known as proportional hazard model).
+
+The Cox model is a semiparametric model because there is a nonparametric part: the __baseline hazard__ function ($\lambda_0(t)$) and a parametric part: ($\exp\{\textbf{x}_i\} \cdot \boldsymbol{\beta}$), in which $\textbf{x}_i$ is the vector of covariates that characterize a statistical unit and $\boldsymbol{\beta}$ is the vectro of predictors. The Cox model is a nonlinear regression that allows us to fit the hazard rate ($\lambda(t;\textbf{x}_i)$).
+
+
+$$
+\lambda(t;\textbf{x}_i) = \lambda_0(t) \cdot \exp\{x_i \cdot \boldsymbol{\beta}\} \qquad i = 1:n
+$$
+
+It is also known as __proportional hazard__ model, because the hazard ratio for two subjects with fixed covariate vectors $\textbf{x}_i$ and $\textbf{x}_j$:
+
+$$
+\frac{\lambda(t;\textbf{x}_i)}{\lambda(t;\textbf{x}_j)} = \frac{\lambda_0(t) \cdot \exp\{\textbf{x}_i \cdot \boldsymbol{\beta}\}}{\lambda_0(t) \cdot \exp\{\textbf{x}_j \cdot \boldsymbol{\beta}\}} = \exp{(\textbf{x}_i - \textbf{x}_j) \boldsymbol{\beta}}
+$$
+
+is fixed over time.
+
+In order to show the model and its inetrpretation, we study the PBC data set. The data come from a Mayo Clinic trial in primary biliary cirrhosis of the liver conducted between 1974 and 1984. PBC is a progressive disease thought to be of an autoimmune origin; the subsequent inflammatory process eventually leads to cirrhosis and destruction of the liver's bile ducts and death of the patient. 
+
+* __case number__;
+
+* number of days between registration and the earlier of death, transplantion, or study analysis time;
+
+* __status__: 0=alive, 1=transplanted, 2=dead;
+
+* __drug__: 1= D-penicillamine, 0=placebo;
+
+* __age__ in days, at registration;
+
+* __sex__: 0=male, 1=female;
+
+* __day__: number of days between enrollment and this visit date, remaining values on the line of data refer to this visit;
+
+* presence of ascites: 0=no 1=yes;
+
+* presence of hepatomegaly 0=no 1=yes;
+
+* presence of spiders 0=no 1=yes;
+
+* presence of edema 0=no edema and no diuretic therapy for edema; .5 = edema present without diuretics, or edema resolved by diuretics; 1 = edema despite diuretic therapy;
+
+* serum bilirubin in mg/dl;
+
+* serum cholesterol in mg/dl;
+
+* albumin in gm/dl;
+
+* alkaline phosphatase in U/liter;
+
+* SGOT in U/ml (serum glutamic-oxaloacetic transaminase, the enzyme name has subsequently changed to "ALT" in the medical literature);
+
+* platelets per cubic ml / 1000;
+
+* prothrombin time in seconds;
+
+* histologic stage of disease.
+
+We load the data.
+
+
+```{r load_PBC, eval = TRUE, collapse = TRUE }
+data( pbc )
+
+head( pbc )
+```
+
+We fit a Cox proportional hazard model.
+
+```{r Cox_PBC, eval = TRUE, collapse = TRUE }
+fit1 = coxph( Surv( time, status == 2 ) ~ age + edema + log( bili ) +
+                log( protime ) + log( albumin ), data = pbc )
+
+summary( fit1 )
+```
+
+In order to give a proper interpretation of the model, we have to focus on the `exp(coef) `, which represents the multiplicative change in risk due to each covariate.
+
+In this case, we can conclude that:
+
+* bilirubin is the most important variable and an increment of 1 point in log(bili) leads to a 2.37 increases in the risk of dying;
+
+* getting older leads to a higher risk of dying: getting 10 years elder leads to 1.5 higher risk of death;
+
+```{r Cox_age_PBC, eval = TRUE, collapse = TRUE }
+exp( fit1$coefficients[ 1 ] * 10  )
+```
+
+* an increasing of albumin level in blood leads to a lower risk of death.
+
+__Testing the global null hypothesis__
+$$
+H_0: \boldsymbol{\beta} = \boldsymbol{\beta}_0 \quad vs \quad H_1: \boldsymbol{\beta} \neq \boldsymbol{\beta}_0
+$$
+In this case $\boldsymbol{\beta}_0$ is the starting value of the regression parameters. 
+
+There are three methods to compute this test:
+
+* __Likelihood Ratio Test__: $2(l(\hat{\boldsymbol{\beta}}) -l(\boldsymbol{\beta}_0))$, twice the difference in the log partial likelihood at the initial and final estimates of $\beta$.
+
+* __Wald test__: $(\hat{\boldsymbol{\beta}}-\beta_0 ) I(\hat{\boldsymbol{\beta}})( \hat{\boldsymbol{\beta}}-\boldsymbol{\beta}_0 )$, where $I(\hat{\boldsymbol{\beta}})$ is the estimated information matrix at the solution. For a single variable, this reduces to the usual z-statistic $\hat{\beta}/se(\hat{\beta})$.
+
+* __Efficient Score statistics__: $U^T(\boldsymbol{\beta}_0)I(\boldsymbol{\beta}_0)^{-1}U(\boldsymbol{\beta}_0)$. $U(\boldsymbol{\beta})$ is the score vector, the partial derivative with respect to $\boldsymbol{\beta}$ of the log-likelihood. When p = 1 and the single covariate is categorical, the score test is identical to the __log-rank test__.
+
+The null hypothesis distribution of each of these tests is a $\chi^2(p)$.
+
+```{r wald_Cox_PBC, eval = TRUE, collapse = TRUE }
+fit_test = coxph( Surv( time, status == 2 ) ~ edema + log( bili ) +
+                    log( protime ) + log( albumin ), data = pbc )
+
+2*( summary(fit1)$logtest - summary(fit_test)$logtest )
+summary(fit_test)$waldtest
+summary(fit_test)$sctest
+
+```
+
+
+__Stratified Cox model__
+
+A possible extension to Cox model consists in considering k strata and a specific $\lambda_0(t)$ for each stratum:
+
+$$
+\lambda_k(t;\textbf{x}_i) = \lambda_{0k}(t) \cdot \exp\{\textbf{x}_i \cdot \boldsymbol{\beta}\} \qquad i = 1:n
+$$
+It is often of interest to fit different baseline in study where several healthcare providers are involved.
+
+In this case we show the output that we obtain by stratifing on edema covariate.
+
+```{r strata_Cox_PBC, eval = TRUE, collapse = TRUE }
+fit2 = coxph( Surv( time, status == 2 ) ~ log(bili) * strata( edema ), data = pbc  )
+
+summary(fit2)
+
+fit3 = coxph( Surv( time, status == 2 ) ~ log(bili), 
+              data = pbc[ which( pbc$edema == 0 ), ]  )
+
+summary(fit3)
+
+fit2$coefficients[ 1 ]
+
+fit4 <- coxph( Surv( time, status == 2 ) ~ log(bili), 
+               data = pbc[ which( pbc$edema == 0.5 ), ]  )
+
+summary(fit4)
+
+sum( fit2$coefficients[ c( 1, 2 ) ] )
+
+fit5 <- coxph( Surv( time, status == 2 ) ~ log(bili), 
+               data = pbc[ which( pbc$edema == 1 ), ]  )
+
+summary(fit5)
+
+sum( fit2$coefficients[ c( 1, 3 ) ] )
+```
+
+We can observe that, whether all the covariates vary with the stratum level, it is identical to fit k different models (where k is the number of strata).
+
+There is a clear analogy between this output and the output related to a linear regression with a categorical covariate. 
+
+
+##---------------------------------------------------------------------------------------------------
+##3. Testing the proportional hazard assumption
+##---------------------------------------------------------------------------------------------------
+
+If proportional hazards hold and we consider __discrete__ covariates, then the log survival curves should be almost parallel lines. Indeed, the survival function under the model satisfies:
+
+$$
+S_i(t) = \exp(-\Lambda_0(t)\boldsymbol{\beta} \textbf{x}_i)
+$$
+
+$$
+\log[-\log(S_i(t))] = \log[\Lambda_0(t)] - \textbf{x}_i \boldsymbol{\beta}
+$$
+
+We check the proportionality assumption in case of `pbc` data and `edema` covariate (the plot should be done in log-log scale). 
+
+```{r parallel_KM_PBC, eval = TRUE, collapse = TRUE }
+km_pbc = survfit( Surv( time, status == 2) ~ edema, data = pbc )
+names( km_pbc )
+
+plot( km_pbc )
+
+plot( log( km_pbc$time ), -log(-log( km_pbc$surv ) ), 
+      ylab = '-log( -log( Survival ) )', xlab = 'log( time )' )
+```
+
+We can state that the observed lines are almost parallel, so edema seems to respect the proportionality assumption.
+
+
+In case of continuous covariate, it is not possible to have a graphical intuition of the proportionality of the hazard. We apply a `cox.zph` function, whose output is a matrix with one row for each variable, and optionally a last row for the global test. Columns of the matrix contain the correlation coefficient between transformed survival time and the scaled __Schoenfeld residuals__, a chi-square, and the two-sided p-value. For the global test there is no appropriate correlation, so an NA is entered into the matrix as a placeholder.
+
+```{r coxzph_PBC, eval = TRUE, collapse = TRUE }
+prop_haz_pbc = cox.zph( fit_test,  transform = 'km' )
+
+prop_haz_pbc
+
+par(mfrow = c(2,2))
+plot( prop_haz_pbc )
+```
+There is strong evidence for nonproportionality as shown by the large global test statistic.  `log(protime)` does not respect the proportionality assumption and its impact changes over time, while `edema` has a constant effect with respect to time (see the former graphical interpretation).
