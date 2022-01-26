@@ -23,12 +23,34 @@ And remember: all the models are wrong, but some are useful. Feel free to use an
 
 ## Description of the data 
 
-The dataset is for the Covid-19 spreading outbreak from the official website of [Protezione Civile](https://github.com/pcm-dpc/COVID-19), by using the following command:
+The dataset is for the Covid-19 spreading outbreak from the official website of [Protezione Civile](https://github.com/pcm-dpc/COVID-19), it was download by using the following command:
 
 ```
 read.csv("https://raw.githubusercontent.com/pcm-dpc/
 COVID-19/master/dati-regioni/dpc-covid19-ita-regioni.csv")
 ```
+
+The dataset contains the following variables:
+
+`data` Date of notification
+`stato` Country of reference
+`codice_regione` Code of the Region (ISTAT 2019)
+`denominazione_regione` Name of the Region
+`lat` Latitude
+`long` Longitude
+`ricoverati_con_sintomi` Hospitalised patients with symptoms
+`terapia_intensiva` Intensive Care
+`ingressi_terapia_intensiva` Daily admissions to intensive care
+`totale_ospedalizzati` Total hospitalised patients
+`isolamento_domiciliare` Home confinement
+`totale_positivi` Total amount of current positive cases (Hospitalised patients + Home confinement)
+`variazione_totale_positivi` New amount of current positive cases (totale_positivi current day - totale_positivi previous day)
+`nuovi_positivi` New amount of current positive cases (totale_casi current day - totale_casi previous day)
+`dimessi_guariti` Recovered
+`deceduti` Death (cumulated values)
+`totale_casi` Total amount of positive cases
+`tamponi` Tests performed
+`casi_testati` Total number of people tested
 
 ***
 
