@@ -11,13 +11,17 @@ covfilter<-filter(cov,denominazione_regione=="Campania")
 
 nrow(covfilter)
 
-names(covfilter)
+# totale_positivi is the Total amount of current positive cases
+#(Hospitalised patients + Home confinement). so in our analysis, we will remove it
 
-view(covfilter)
+#nuovi_positivi New amount of current positive cases 
+# (totale_casi current day - totale_casi previous day), so we will use only new case 
 
-covselect<-select(covfilter,data,ricoverati_con_sintomi,terapia_intensiva,ingressi_terapia_intensiva,totale_ospedalizzati,isolamento_domiciliare,totale_positivi,
-                  nuovi_positivi,dimessi_guariti,deceduti,totale_casi,tamponi,casi_testati)
 
+covselect<- as_tibble(select(covfilter,data,variazione_totale_positivi,ricoverati_con_sintomi,terapia_intensiva,ingressi_terapia_intensiva,totale_ospedalizzati,isolamento_domiciliare,
+                  nuovi_positivi,dimessi_guariti,deceduti,totale_casi,tamponi,casi_testati,-ingressi_terapia_intensiva))
+
+view(covselect)
 # check the missing value
 
 sum(is.na(covselect$data))
@@ -25,13 +29,8 @@ sum(is.na(covselect$data))
 covselect$data<-as.Date(covselect$data)
 #view(covselect)
 
-Cov<-filter(covselect,covselect$data>="2020-10-01",covselect$data<="2021-02-01")
-view(Cov)
-
-#nrow(Cov)
-sum(is.na(Cov$ingressi_terapia_intensiva))
-
-Data_t<-as_tibble(select(Cov, -ingressi_terapia_intensiva))
+Data_t<-filter(covselect,covselect$data>="2020-10-01",covselect$data<="2021-02-15")
+view(Data_t)
 
 str(Data_t)
 # let's check the outlier using the box plot 
@@ -39,70 +38,137 @@ str(Data_t)
 # total population estimation in campagna on 2021-01-01 is 5,679,759
 
 summary(Data_t)
+
+## From the summary, we can notice the the total cases are 4.2 % of the population, 
+## the number of people teste are 33.06% of the population, tamponi respresent 47.71 %
+## deceduti represent 0.07 % , dimessi_guariti 3 %
+## nuovi_positivi 0.0081 %
+
+## totale_positivi 1.84 %, isolamento_domiciliare 1.8, 0.003996648, terapia_intensiva 0.0039 %
+
+
+
 ## visualization
 
-
-
 p<-ggplot(Data_t)+
-  geom_line(mapping =aes(x=data, y=casi_testati,color="casi_testati"))+
-  geom_line(mapping =aes(x=data, y=tamponi,color="tamponi"))
+  geom_line(mapping =aes(x=data, y=casi_testati,color="Total number of people tested"))+
+  geom_line(mapping =aes(x=data, y=tamponi,color="Tests performed"))+
+  labs(x=" Periode", y= " Count ", title = "Train of Covid-19 test Oct-2020-Feb-2021")+
+  theme(plot.title = element_text(hjust = 0.5))
 p
+
+
  
 ggsave(p, filename = "visualization/casi_testi_tamponi.png")
 
 p<-ggplot(Data_t)+
-  geom_line(mapping =aes(x=data, y=terapia_intensiva))
+  geom_line(mapping =aes(x=data, y=terapia_intensiva,color="intensive care"))+
+  geom_line(mapping =aes(x=data, y=totale_ospedalizzati,color="Total hospitalised patients"))+
+   labs(x=" Periode", y= " Number of people in intensive care ", title = " Patients in intensive care and hospitalised patients during October 2020 and February 2021.")+
+  theme(plot.title = element_text(hjust = 0.5))
+
 p
-ggsave(p, filename = "visualization/intensive_terapia.png")
+
+ggsave(p, filename = "visualization/ people_in_intensive_care_and_hospitalize.png")
 
 
+p<-ggplot(Data_t)+
+  geom_line(mapping =aes(x=data, y=terapia_intensiva,color="intensive care"))+
+  geom_line(mapping =aes(x=data, y=totale_ospedalizzati,color="Total hospitalised patients"))+
+  geom_line(mapping =aes(x=data, y=isolamento_domiciliare,color="Home confinement"))+
+  labs(x=" Periode", y= " Number of people in intensive care ", title = "  Home confinement during October 2020 and February 2021.")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+p
+
+ggsave(p, filename = "visualization/ Home_confinement.png")
+
+
+
+
+
+p<-ggplot(Data_t)+
+  geom_line(mapping =aes(x=data, y=terapia_intensiva))+
+  labs(x=" Periode", y= " Number of people in intensive care ", title = " Patients in intensive care during October 2020 and February 2021.")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+p
+
+ggsave(p, filename = "visualization/ people_in_intensive_care.png")
+
+
+# feature importance using buruto (to check)
+
+#variazione_totale_positivi New amount of current positive cases
+
+#(totale_positivi current day - totale_positivi previous day)
+
+
+#nuovi_positivi New amount of current positive cases
+#(totale_casi current day - totale_casi previous day)
+
+l<-ggplot(Data_t)+
+  geom_line(mapping =aes(x=data, y=nuovi_positivi), color="red")+
+  labs(x=" Periode", y= " New amount of current positive cases ", title = "New amount of current positive Covid-19 during October 2020 and February 2021.")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggsave(l, filename = "visualization/New_amount_of_current_positive_cases.png")
+
+l<-ggplot(Data_t)+
+  geom_line(mapping =aes(x=data, y=deceduti), color="red")+
+  labs(x=" Periode", y= " Nomber of death ", title = "Cumulative number of death due to Covid-19 during October 2020 and February 2021.")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+l
+
+ggsave(l, filename = "visualization/death_cases.png")
+
+
+
+## in the next step, we are interested in the number of new New amount of current positive cases
 
 boxplot(Data_t)  
 
-dar<-select(Data_t, -casi_testati, -tamponi)  
+dar<-select(Data_t,-deceduti,-terapia_intensiva, -data, -casi_testati,-dimessi_guariti, -tamponi,-totale_casi,-variazione_totale_positivi,-totale_ospedalizzati,-isolamento_domiciliare)  
+
+ggplot(dar)+
+  geom_boxplot(aes(nuovi_positivi))+
+  geom_boxplot(aes(ricoverati_con_sintomi,color="red"))
+  
 boxplot(dar)  
 
+# from the boxplot, we can identifier the outliers for our explanatory variable, 
+# so we should remove the outliers  
+### Model ####
 
-# feature importance using buruto 
+Dataset<-mutate(dar,data = Data_t$data,terapia_intensiva=Data_t$terapia_intensiva)
 
-library(Boruta)
-library(mlbench)
+ view(Dataset)
 
-library(randomForest)
-set.seed(111)
-Dat<-select(Data_t,-data)
-boruto<-Boruta(terapia_intensiva~.,data = Dat,doTrace=2, maxRuns=100)
-print(boruto)
-p<-plot(boruto,las=2,cex.axis=0.5)
-ggsave(p, filename = "visualization/feature_importance.png")
-P<-plotImpHistory(boruto)
-bor<-TentativeRoughFix(boruto)
-bor
-getNonRejectedFormula(boruto)
+p<-ggplot(Dataset,mapping = aes(ricoverati_con_sintomi,nuovi_positivi))+
+  geom_point(color="blue")+ 
+  labs(x=" Hospitalised patients with symptoms", y= " New amount of current positive cases ")
+p
 
-###########
+ggsave(p, filename = "visualization/corpoint.png")
 
 ### Let's split the data in train and test data set###
 ### our test data should be the last 15 day of the selected data set
 
-train<-filter(Cov,Cov$data<="2021-01-16")
-test<-filter(Cov,Cov$data>"2021-01-16")
+train<-filter(Dataset,Dataset$data<="2021-02-01")
+test<-filter(Dataset,Dataset$data>"2021-02-01")
 
-view(test)
-plot(test$data,test$terapia_intensiva)
 
 
 library(mgcv)
 
 library(PerformanceAnalytics)
 chart.Correlation(Dat)
-names(Dat)
+
 
 ### Model GAM : Generalized additive model ##
 
-mod_lm <- gam(terapia_intensiva ~ s(ricoverati_con_sintomi) + s(totale_ospedalizzati)+  
-                s(isolamento_domiciliare)+ s(totale_positivi)+ s(nuovi_positivi)+        
-                s(dimessi_guariti)+ s(deceduti)+ (totale_casi)+s(tamponi), data=train)
+mod_lm <- gam(terapia_intensiva ~ s(ricoverati_con_sintomi) + s(nuovi_positivi), data=train)
 summary(mod_lm)
 plot(mod_lm,residuals = TRUE, pages = 1, pch = 19)
 
@@ -119,7 +185,7 @@ view(new)
 
 p<-ggplot(new)+
   geom_line(aes(data,terapia_intensiva,,color="True"))+
-  geom_point(aes(data,fittes,color= "Predicted"))
+  geom_line(aes(data,fittes,color= "Predicted"))
 p
 
 ggsave(p, filename = "visualization/GAM_result.png")
