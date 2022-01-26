@@ -1,6 +1,10 @@
-# covid_analysis
-
+# Covid analysis
+Our project aims to predict the number of intensive care units (terapia_intensiva) in the Campania region.
 ***
+
+### Problem statement 
+
+
 ## Goal of the project 
 
 Consider your dataset starting from 1st October 2020 to 1st February 2021 (basically, the second wave) and prepare your presentation by considering the following points:
