@@ -20,3 +20,16 @@ Provide 10-15 days-forward predictions and check their accuracy (say, for the pe
 Compare alternative models in terms of predictive information criteria and comment.
 
 And remember: all the models are wrong, but some are useful. Feel free to use any model (possibly one from those covered in the course).
+
+## Description of the data 
+
+The dataset is for the Covid-19 spreading outbreak from the official website of [Protezione Civile](https://github.com/pcm-dpc/COVID-19), by using the following command:
+
+```
+read.csv("https://raw.githubusercontent.com/pcm-dpc/
+COVID-19/master/dati-regioni/dpc-covid19-ita-regioni.csv")
+```
+
+***
+
+
