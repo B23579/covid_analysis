@@ -123,13 +123,37 @@ l
 
 ggsave(l, filename = "visualization/death_cases.png")
 
+for (i in 1:nrow(Data_t)) {
+  if(i!=1){
+    Data_t$deceduti[i]=Data_t$deceduti[i]-Data_t$deceduti[i-1]
+  }
+}
+
+l<-ggplot(Data_t)+
+  geom_line(mapping =aes(x=data, y=deceduti), color="red")+
+  labs(x=" Periode", y= " Nomber of death ", title = "Cumulative number of death due to Covid-19 during October 2020 and February 2021.")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+l
 
 
 ## in the next step, we are interested in the number of new New amount of current positive cases
 
 boxplot(Data_t)  
 
-dar<-select(Data_t,-deceduti,-terapia_intensiva, -data, -casi_testati,-dimessi_guariti, -tamponi,-totale_casi,-variazione_totale_positivi,-totale_ospedalizzati,-isolamento_domiciliare)  
+dar<-select(Data_t,deceduti,-terapia_intensiva, -data, -casi_testati,-dimessi_guariti, -tamponi,-totale_casi,-variazione_totale_positivi,-totale_ospedalizzati,-isolamento_domiciliare)  
+
+## deceduti is a cumulative variable, let's remove the cumulative funtion
+
+
+
+view(dar)
+
+ggplot(dar)+
+  geom_line(mapping =aes(x=data, y=deceduti), color="red")+
+  labs(x=" Periode", y= " Nomber of death ", title = "Cumulative number of death due to Covid-19 during October 2020 and February 2021.")+
+  theme(plot.title = element_text(hjust = 0.5))
+
 
 ggplot(dar)+
   geom_boxplot(aes(nuovi_positivi))+
@@ -158,36 +182,125 @@ ggsave(p, filename = "visualization/corpoint.png")
 train<-filter(Dataset,Dataset$data<="2021-02-01")
 test<-filter(Dataset,Dataset$data>"2021-02-01")
 
+nrow(train)
 
+## outliers 
+
+outlier_norm <- function(x){
+  qntile <- quantile(x, probs=c(.25, .75))
+  caps <- quantile(x, probs=c(.05, .95))
+  H <- 1.5 * IQR(x, na.rm = T)
+  x[x < (qntile[1] - H)] <- caps[1]
+  x[x > (qntile[2] + H)] <- caps[2]
+  return(x)
+}
+train$nuovi_positivi=outlier_norm(train$nuovi_positivi)
+boxplot(train$nuovi_positivi)
+
+train$ricoverati_con_sintomi=outlier_norm(train$ricoverati_con_sintomi)
+boxplot(train$ricoverati_con_sintomi)
 
 library(mgcv)
-
+library(mlr)
 library(PerformanceAnalytics)
 chart.Correlation(Dat)
 
+# destribution of covariate 
+ggplot(train)+
+  geom_density(aes(ricoverati_con_sintomi, fill="ricoverati_con_sintomi"))+
+  geom_density(aes(nuovi_positivi, fill="nuovi_positivi"))
+  
+
+plot(train$nuovi_positivi, train$terapia_intensiva)
+plot(train$ricoverati_con_sintomi,train$terapia_intensiva)
 
 ### Model GAM : Generalized additive model ##
 
-mod_lm <- gam(terapia_intensiva ~ s(ricoverati_con_sintomi) + s(nuovi_positivi), data=train)
+mod_1 <- gam(terapia_intensiva ~s(ricoverati_con_sintomi)+nuovi_positivi, data=train)
 summary(mod_lm)
 plot(mod_lm,residuals = TRUE, pages = 1, pch = 19)
 
+mod_1 <- gam(terapia_intensiva ~te(ricoverati_con_sintomi,nuovi_positivi), data=train)
+summary(mod_lm)
+plot(mod_lm,residuals = TRUE, pages = 1, pch = 19)
+
+
+mod_lm <- gam(terapia_intensiva ~ s(ricoverati_con_sintomi,by=nuovi_positivi, bs = 're')+nuovi_positivi, data=train)
+summary(mod_lm)
+plot(mod_lm,residuals = TRUE, pages = 1, pch = 19)
+
+mod_lm <- gam(terapia_intensiva ~ te(ricoverati_con_sintomi,nuovi_positivi), data=train)
+summary(mod_lm)
+plot(mod_lm,residuals = TRUE, pages = 1, pch = 19)
+
+model_2<-lm(terapia_intensiva ~ricoverati_con_sintomi+ ricoverati_con_sintomi, data=train)
+
 ## plot the prediction and the target on the same plot####
 
-pred<-predict(mod_lm, test)
+pred<-predict(mod_1, test)
 pred[2]
-
 
 new<-mutate(test,fittes=pred)
 
-####
+#### 
 view(new)
 
 p<-ggplot(new)+
-  geom_line(aes(data,terapia_intensiva,,color="True"))+
+  geom_line(aes(data,terapia_intensiva,color="True"))+
   geom_line(aes(data,fittes,color= "Predicted"))
 p
 
 ggsave(p, filename = "visualization/GAM_result.png")
-     
+
+p<-ggplot(train)+
+  geom_line(aes(data,nuovi_positivi,color="True"))
+p
+
+
+########### polynomial Linear model###
+
+model_3<-gam(terapia_intensiva~s(nuovi_positivi,2) +s(ricoverati_con_sintomi,3), data = train)
+
+ns(year , 4) + ns(age , 5)
+
+pred<-predict(model_3, test)
+
+new<-mutate(test,fittes=pred)
+
+
+ggplot(new)+
+  geom_line(aes(data,terapia_intensiva,color="True"))+
+  geom_line(aes(data,fittes,color= "Predicted"))
+
+
+# decision trees are not sensible to the outliers, 
+
+view(train)
+
+library(randomForest)
+
+spam.rf <- randomForest(terapia_intensiva ~ ricoverati_con_sintomi + nuovi_positivi, data = train, importance =TRUE)
+print(spam.rf)
+
+te<-select(test,ricoverati_con_sintomi,nuovi_positivi)
+
+pre<-predict(spam.rf,te)
+
+new<-mutate(test,fittes=pre)
+
+p<-ggplot(new)+
+  geom_line(aes(data,terapia_intensiva,color="True"))+
+  geom_line(aes(data,fittes,color= "Predicted"))
+p
+
+
+ggplot(train, maping=aes(x=ricoverati_con_sintomi,y=terapia_intensiva))+
+  geom_line()
+
+
+s
+
+plot(train$ricoverati_con_sintomi, train$terapia_intensiva)
+
+view(train)     
 
