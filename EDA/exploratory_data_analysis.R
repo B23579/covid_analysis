@@ -61,7 +61,9 @@ str(Data_t)
 
 summary(Data_t)
 
+
 ## From the summary, we can notice the the total cases are 4.2 % of the population, 
+
 ## the number of people teste are 33.06% of the population, tamponi respresent 47.71 %
 ## deceduti represent 0.07 % , dimessi_guariti 3 %
 ## nuovi_positivi 0.0081 %
