@@ -306,9 +306,33 @@ chart.Correlation(cov[,c("ricoverati_con_sintomi","terapia_intensiva","isolament
 #                               FIT GLM                                       #
 ###############################################################################
 
+# Remark: the number of people in intensive care is always greater than 0: 
+# it is inappropriate to consider a linear model since it can also predict
+# negative value -> Poisson regression
 
+watchout_point <- which.max(cov$terapia_intensiva)
+cov <- cov[-watchout_point, ] # Removing the outlier
 
+# Trying out GLM with different combination
+fit_glm_all <- glm(terapia_intensiva ~ . - data, data = cov, family = poisson)
+fit_glm_no_color <- glm(terapia_intensiva ~ . - colore - data, data = cov, 
+                        family = poisson)
+fit_glm_high_correlation <- glm(terapia_intensiva ~ ricoverati_con_sintomi + 
+                                nuovi_positivi + deceduti_daily, data = cov, 
+                                family = poisson)
 
+fit_glm_all # AIC: 950.6 <- Best
+fit_glm_no_color # AIC: 991.5
+fit_glm_high_correlation # AIC: 1009 <- Worse
+
+# Easiest one to plot
+fitted_values_high_correlation <- exp(fit_glm_high_correlation$coefficients[1] + 
+                                      fit_glm_high_correlation$coefficients[2] * cov$ricoverati_con_sintomi +
+                                      fit_glm_high_correlation$coefficients[3] * cov$nuovi_positivi +  
+                                      fit_glm_high_correlation$coefficients[4] * cov$deceduti_daily)
+
+plot(cov$data, cov$terapia_intensiva, ylim = c(0, 250))
+points(cov$data, fitted_values_high_correlation, type = 'l')
 
 ###############################################################################
 #                               FIT GAM                                       #
