@@ -13,7 +13,7 @@ library(ggplot2)
 library(hrbrthemes)
 library(ggpubr)
 library(dplyr)
-
+library(MASS)
 
 
 ###############################################################################
@@ -35,7 +35,7 @@ cov<-filter(cov_orig,denominazione_regione=="Campania")
 nrow(cov)
 names(cov)
 #view(cov)
-cov<-select(cov,data,ricoverati_con_sintomi,terapia_intensiva,ingressi_terapia_intensiva,
+cov<-dplyr::select(cov,data,ricoverati_con_sintomi,terapia_intensiva,ingressi_terapia_intensiva,
                   totale_ospedalizzati,isolamento_domiciliare,totale_positivi,
                   nuovi_positivi,dimessi_guariti,deceduti,totale_casi,tamponi,casi_testati)
 #view(cov)
@@ -46,14 +46,16 @@ cov<-filter(cov,cov$data>="2020-09-30",cov$data<="2021-02-01")
 #view(cov)
 nrow(cov)
 sum(is.na(cov$ingressi_terapia_intensiva))
-cov<-select(cov, -ingressi_terapia_intensiva)
+cov<-dplyr::select(cov, -ingressi_terapia_intensiva)
 #view(cov)
 cov <- cov[order(cov$data),]
 cov$deceduti_daily <- c(cov$deceduti[1],diff(cov$deceduti))
 cov$dimessi_guariti_dayly <- c(cov$dimessi_guariti[1],diff(cov$dimessi_guariti))
 cov$casi_testati_daily <- c(cov$casi_testati[1],diff(cov$casi_testati))
+cov$terapia_intensiva_ieri <- c(NA, head(cov$terapia_intensiva, length(cov$terapia_intensiva) - 1))
 cov<-filter(cov,cov$data>="2020-10-01",cov$data<="2021-02-01")
 cov$nuovi_positivi_norm <- cov$nuovi_positivi/cov$casi_testati_daily
+
 
 
 # upload and prepare the dataset vax and add it to cov
@@ -61,7 +63,7 @@ cov$nuovi_positivi_norm <- cov$nuovi_positivi/cov$casi_testati_daily
 vax_orig <- read_csv("Vax.csv")
 names(vax_orig)
 vax <- subset(vax_orig,vax_orig$nome_area == "Campania")
-vax <- select(vax,data_somministrazione,totale)
+vax <- dplyr::select(vax,data_somministrazione,totale)
 vax <- subset(vax,vax$data_somministrazione <= '2021-02-01')
 vax <- rename(vax,dayly_vax = totale)
 vax <- vax[order(vax$data_somministrazione),]
@@ -71,14 +73,14 @@ vax$perc_vax <- vax$tot_vax/pop_campania*100
 cov <- merge(cov,vax, by.x = "data", by.y = "data_somministrazione", all.x = TRUE)
 cov[is.na(cov)] <- 0
 # for now I choose to consider only %of vax, then we can choose what we prefer
-cov <- select(cov, -tot_vax, -dayly_vax)
+cov <- dplyr::select(cov, -tot_vax, -dayly_vax)
 
 # upload ad add colore dataset
 # https://github.com/imcatta/restrizioni_regionali_covid
 color_orig <- read_csv("color.csv")
 color <- subset(color_orig,color_orig$denominazione_regione == "Campania")
 names(color)
-color <- select(color,"data","colore")
+color <- dplyr::select(color,"data","colore")
 color <- subset(color,color$data <= '2021-02-01')
 color <- subset(color,color$data >= '2020-10-01')
 color <- color[order(color$data),]
@@ -99,7 +101,7 @@ p1 <- ggplot(cov) +
   geom_line(mapping = aes(x=data, y = totale_ospedalizzati, color = "totale_ospedalizzati")) +
   theme_ipsum()
 
-x11()
+#x11()
 p1
 # we can discard totale_ospedalizzati
 
@@ -111,11 +113,11 @@ p2 <- ggplot(cov) +
   geom_line(mapping = aes(x=data, y = totale_positivi, color = "totale_positivi")) +
   theme_ipsum()
 
-x11()
+#x11()
 p2
 
 # we can discard totale_positivi 
-cov <- select(cov, -totale_ospedalizzati, -totale_positivi)
+cov <- dplyr::select(cov, -totale_ospedalizzati, -totale_positivi)
 
 # let's take a look at all the variables wrt date
 names(cov)
@@ -159,6 +161,10 @@ date_PV <- ggplot(cov, aes(x=data, y=perc_vax, color=colore)) +
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
   theme_ipsum()
+date_TII <- ggplot(cov, aes(x=data, y=terapia_intensiva_ieri, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
 
 #date_TI
 #date_RCS
@@ -171,15 +177,15 @@ date_PV <- ggplot(cov, aes(x=data, y=perc_vax, color=colore)) +
 #date_CT
 #date_PV
 
-x11()
+#x11()
 ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DG,date_D,date_TC,
-          date_T,date_CT,date_PV, 
+          date_T,date_CT,date_PV, date_TII,
           ncol = 3, nrow = 4)
 
 # we also choose not to consider totale_casi and tamponi
 # (see Walter Work to see how to consider the casi_testati variable)
 # because they are cumulative variables that we are not particularly interested in
-cov <- select(cov, -totale_casi, -tamponi, -casi_testati)
+cov <- dplyr::select(cov, -totale_casi, -tamponi, -casi_testati)
 
 # we see what happens if we consider deceduti and dimessi_guariti on a daily basis
 date_DGD <- ggplot(cov, aes(x=data, y=dimessi_guariti_dayly, color=colore)) + 
@@ -192,7 +198,7 @@ date_DD <- ggplot(cov, aes(x=data, y=deceduti_daily, color=colore)) +
   theme_ipsum()
 
 
-x11()
+#x11()
 ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DGD,date_DD,date_PV, 
           ncol = 3, nrow = 3)
 
@@ -201,10 +207,16 @@ date_NPN <- ggplot(cov, aes(x=data, y=nuovi_positivi_norm, color=colore)) +
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
   theme_ipsum()
-x11()
+#x11()
 ggarrange(date_NP,date_NPN,
           ncol = 2, nrow = 1)
 
+# we notice some outliers
+watchout_point_TI <- max(cov$terapia_intensiva)
+watchout_point_TII <- max(cov$terapia_intensiva_ieri)
+# we choose to discard them
+cov <- cov[-which.max(cov$terapia_intensiva),]
+cov <- cov[-which.max(cov$terapia_intensiva_ieri),]
 
 
 
@@ -238,14 +250,15 @@ PV_TI <- ggplot(cov, aes(x=perc_vax,y=terapia_intensiva, color=colore)) +
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
   theme_ipsum()
+TII_TI <- ggplot(cov, aes(x=terapia_intensiva_ieri,y=terapia_intensiva, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
 
-x11()
-ggarrange(date_TI,RCS_TI,ID_TI,NP_TI,DG_TI,D_TI ,PV_TI, 
+#x11()
+ggarrange(date_TI,RCS_TI,ID_TI,NP_TI,DG_TI,D_TI ,PV_TI, TII_TI,
           ncol = 3, nrow = 3)
 
-# we notice an outlier
-watchout_point <- max(cov$terapia_intensiva)
-# now we have to choose if we want to exclude the outlier. in my opinion yes
 
 # we see what happens if we consider deceduti and dimessi_guariti on a daily basis
 DGD_TI <- ggplot(cov, aes(x=dimessi_guariti_dayly,y=terapia_intensiva, color=colore)) + 
@@ -257,7 +270,7 @@ DD_TI <- ggplot(cov, aes(x=deceduti_daily,y=terapia_intensiva, color=colore)) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
   theme_ipsum()
 
-x11()
+#x11()
 ggarrange(date_TI,RCS_TI,ID_TI,NP_TI,DGD_TI,DD_TI ,PV_TI, 
           ncol = 3, nrow = 3)
 
@@ -266,59 +279,13 @@ NPN_TI <- ggplot(cov, aes(x=nuovi_positivi_norm,y=terapia_intensiva, color=color
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
   theme_ipsum()
-x11()
+#x11()
 ggarrange(NP_TI,NPN_TI, 
           ncol = 2, nrow = 1)
 # Discuss together these results
+# we prefer to keep the original variables, because we don't have any improvement after this trasformations
+cov <- dplyr::select(cov, -deceduti_daily,-dimessi_guariti_dayly, -casi_testati_daily, -nuovi_positivi_norm)
 
-
-
-
-###############################################################################
-#                         CORRELATION ANALYSIS                                #
-###############################################################################
-
-
-# correlation analysis
-#corr <- cor(select(cov, -data, -colore))
-#corr
-#x11()
-#corrplot(corr, method = "ellipse")
-#names(cov)
-x11()
-chart.Correlation(cov[,c("ricoverati_con_sintomi","terapia_intensiva","isolamento_domiciliare",
-                          "nuovi_positivi","dimessi_guariti","deceduti","perc_vax")])
-x11()
-chart.Correlation(cov[,c("ricoverati_con_sintomi","terapia_intensiva","isolamento_domiciliare",
-                         "nuovi_positivi","dimessi_guariti_dayly","deceduti_daily","perc_vax")])
-
-# Discuss together these results
-
-
-###############################################################################
-#                               FIT LM                                        #
-###############################################################################
-
-
-
-
-###############################################################################
-#                               FIT GLM                                       #
-###############################################################################
-
-
-
-
-
-###############################################################################
-#                               FIT GAM                                       #
-###############################################################################
-
-
-
-
-
-
-
+#write.csv(cov,"cov_post_EDA.csv")
 
 
