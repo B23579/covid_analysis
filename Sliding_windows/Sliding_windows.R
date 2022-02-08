@@ -17,7 +17,7 @@ library(MASS)
 
 # Upload and prepare the dataset cov
 # Import the dataset
-cov_orig <- read.csv("Covid19.csv")
+cov_orig <- read.csv("/home/walter/DSSC/I/SM/exam/Covid19.csv")
 
 # Select the variables/period of interest
 cov<-filter(cov_orig,denominazione_regione=="Campania")
@@ -46,7 +46,7 @@ cov$nuovi_positivi_norm <- cov$nuovi_positivi/cov$casi_testati_daily
 
 # Upload and prepare the dataset vax and add it to cov
 # https://github.com/pcm-dpc/COVID-19 (?)
-vax_orig <- read_csv("Vax.csv")
+vax_orig <- read_csv("/home/walter/DSSC/I/SM/exam/Vax.csv")
 names(vax_orig)
 vax <- subset(vax_orig,vax_orig$nome_area == "Campania")
 vax <- dplyr::select(vax,data_somministrazione,totale)
@@ -64,7 +64,7 @@ cov <- dplyr::select(cov, -tot_vax, -dayly_vax)
 
 # upload ad add colore dataset
 # https://github.com/imcatta/restrizioni_regionali_covid
-color_orig <- read_csv("color.csv")
+color_orig <- read_csv("/home/walter/DSSC/I/SM/exam/color.csv")
 color <- subset(color_orig,color_orig$denominazione_regione == "Campania")
 names(color)
 color <- dplyr::select(color,"data","colore")
@@ -78,7 +78,7 @@ cov$colore <- as.factor(cov$colore)
 ## SHOW THE VARIABLES AND CHOOSE WHICH ONE TO CONSIDER ########################
 
 # we can discard totale_positivi 
-cov <- dplyr::select(cov, -totale_ospedalizzati, -totale_positivi)
+cov <- dplyr::select(cov, -totale_ospedalizzati) #, -totale_positivi)
 
 # we also choose not to consider totale_casi and tamponi
 # (see Walter Work to see how to consider the casi_testati variable)
@@ -256,12 +256,12 @@ segments(cov$shifted_sliding_ICU, cov$terapia_intensiva,
          cov$shifted_sliding_ICU, fitted(lm_ICU), lty="dashed")
 
 # Pretty nice plot, a final thing to notice
-summary(lm_ICU) # <- R^2 = 0.925
+summary(lm_ICU) # <- R^2 = 0.9312
 
 # Indeed
 Tot_SS <- with(cov, sum((terapia_intensiva - mean(terapia_intensiva))^2)) 
 Res_SS <- with(cov, sum((predict(lm_ICU) - terapia_intensiva)^2))
-R_sq <- 1 - Res_SS/Tot_SS # <- 0.925
+R_sq <- 1 - Res_SS/Tot_SS # <- 0.9312
 
 # We can even visualize the results with respect to the date
 plot(cov$data, fitted(lm_ICU), type = "b", pch = 19, cex = 0.8, col = "red",
@@ -277,26 +277,27 @@ segments(cov$data, cov$terapia_intensiva,
 ### MULTIPLE LINEAR REGRESSION ################################################
 # We already visualized the correlation chart so now time to use the chosen
 # variable to get some goodies 
-lm_fantanstic_three <- lm(terapia_intensiva ~ nuovi_positivi +
-                          ricoverati_con_sintomi + shifted_sliding_ICU, 
+lm_fantanstic_four <- lm(terapia_intensiva ~ nuovi_positivi +
+                          ricoverati_con_sintomi + deceduti + shifted_sliding_ICU, 
                           data = cov)
+
 par(mfrow = c(2,2))
-plot(lm_fantanstic_three)
+plot(lm_fantanstic_four)
 
 # Surely better than before, there are a couple of outliers though
 # Let's take a look at the R^2 for curiosity
-summary(lm_fantanstic_three) # R^2 --> 0.9657, yes: better
+summary(lm_fantanstic_four) # R^2 --> 0.968, it is better
 
 # Obviously now we can't visualize a plot in 4 dimensions but we can still 
 # visualize it with respect to the date
-plot(cov$data, fitted(lm_fantanstic_three), type = "b", pch = 19, cex = 0.8,
+par(mfrow = c(1,1))
+plot(cov$data, fitted(lm_fantanstic_four), type = "b", pch = 19, cex = 0.8,
      col = "red", ylim = c(40, 220))
 points(cov$data, cov$terapia_intensiva,  type = "b", pch = 19, 
        cex = 0.8, col = "black")
 segments(cov$data, cov$terapia_intensiva, 
-         cov$data, fitted(lm_fantanstic_three), lty = "dashed")
+         cov$data, fitted(lm_fantanstic_four), lty = "dashed")
 
-# It better yes, but maybe it over fits the data a bit (?) 
 # In any case, I'm still using only a linear model so I can't expect much better
 # Just out of curiosity, let's also remove 'ricoverati_con_sintomì'
 lm_last <- lm(terapia_intensiva ~ nuovi_positivi + shifted_sliding_ICU, 
@@ -309,25 +310,26 @@ segments(cov$data, cov$terapia_intensiva,
          cov$data, fitted(lm_last), lty = "dashed")
 
 # And the R^2 is..
-summary(lm_last) # R^2 --> 0.9656, like the previous
+summary(lm_last) # R^2 --> 0.9665, like the previous basically but with 2
+                 # covariates less
 
 # Plotting the residuals against the common explanatory variables in the last 2
 # cases:  they're pretty much the same
 par(mfrow = c(2, 2))
 plot(cov$shifted_sliding_ICU, lm_last$residuals, ylab = 'last')
 abline(h = 0, lty = "dashed")
-plot(cov$shifted_sliding_ICU, lm_fantanstic_three$residuals, ylab = 'three')
+plot(cov$shifted_sliding_ICU, lm_fantanstic_four$residuals, ylab = 'four')
 abline(h = 0, lty = "dashed")
 plot(cov$nuovi_positivi, lm_last$residuals, ylab = 'last')
 abline(h = 0, lty = "dashed")
-plot(cov$nuovi_positivi, lm_fantanstic_three$residuals, ylab = 'three')
+plot(cov$nuovi_positivi, lm_fantanstic_four$residuals, ylab = 'four')
 abline(h = 0, lty = "dashed")
 
 # Rad, this is even better than the one with 3 features, later I will compare
 # the models with better techniques
 # Really the last thing for this section: extending the simple linear regression 
-# model by modelling the explanatory variable dist as a polynomial of degree two
-# for 'nuovi_positivi', because looking at the correlation chart maybe there's
+# model by modelling the explanatory variable 'nuovi_positivi' as a polynomial 
+# of degree two for, because looking at the correlation chart maybe there's
 # something (?)
 lm_polynomial <- lm(terapia_intensiva ~ nuovi_positivi + shifted_sliding_ICU + 
                     I(nuovi_positivi^2), data = cov)
@@ -342,12 +344,12 @@ points(cov$data, cov$terapia_intensiva,  type = "b", pch = 19,
 segments(cov$data, cov$terapia_intensiva, 
          cov$data, fitted(lm_polynomial), lty = "dashed")
 
-summary(lm_polynomial) # R^2 --> 0.9687
+summary(lm_polynomial) # R^2 --> 0.9696
 # It is better, but is it correct?
 
 ### AIC #######################################################################
 # AIC
-AIC <- rbind(extractAIC(lm_ICU)[2], extractAIC(lm_fantanstic_three)[2],
+AIC <- rbind(extractAIC(lm_ICU)[2], extractAIC(lm_fantanstic_four)[2],
              extractAIC(lm_last)[2], extractAIC(lm_polynomial)[2])
 
 AIC
@@ -355,9 +357,124 @@ AIC
 
 ### RIDGE REGRESSION ##########################################################
 # Doing things randomly
-lm_ridge<- lm.ridge(terapia_intensiva ~ nuovi_positivi + shifted_sliding_ICU,
+lm_ridge <- lm.ridge(terapia_intensiva ~ nuovi_positivi + shifted_sliding_ICU,
                     lambda = 0, data = cov)
+
+## GENERALIZED LINEAR MODELS ##################################################
+# I think that in this case it is possible to assume that the number of people
+# in ICU related to the value of some other covariates follows a Poisson 
+# distribution: https://en.wikipedia.org/wiki/Poisson_distribution
+# Indeed in this case the linear specification is innapropriate also because
+# it will predict negative values and so we should chose among functions that
+# have a positive codomain
+# So let's try it 
+glm_Poisson <- glm(terapia_intensiva ~ nuovi_positivi + shifted_sliding_ICU , data = cov, family = poisson)
+summary(glm_Poisson)
+par(mfrow = c(1, 1))
+lm_last <- lm(terapia_intensiva ~ nuovi_positivi + shifted_sliding_ICU, 
+              data = cov)
+plot(cov$data, fitted(glm_Poisson), type = "b", pch = 19, cex = 0.8,
+     col = "red", ylim = c(40, 220))
+points(cov$data, cov$terapia_intensiva,  type = "b", pch = 19, 
+       cex = 0.8, col = "black")
+segments(cov$data, cov$terapia_intensiva, 
+         cov$data, fitted(glm_Poisson), lty = "dashed")
 
 # Remark: is a good idea to use different windows length for a different number
 # of people in ICU? 
 
+###############################################################################
+running_nuovi_positivi <- runner(
+  cov$nuovi_positivi,
+  k = 7,
+  lag = 1,
+  f = mean
+)
+
+running_terapia_intensiva <- runner(
+  cov$terapia_intensiva,
+  k = 7,
+  lag = 1,
+  f = mean
+)
+
+running_ricoverati_con_sintomi<- runner(
+  cov$ricoverati_con_sintomi,
+  k = 7,
+  lag = 1,
+  f = mean
+)
+
+cov$colore <- relevel(cov$colore, "rosso")
+cov$colore <- relevel(cov$colore, "arancione")
+cov$colore <- relevel(cov$colore, "giallo")
+cov$colore <- relevel(cov$colore, "pre_decreto")
+unclass(cov$colore)
+
+running_colore <- runner(
+  cov$colore,
+  k = 7,
+  lag = 7,
+  f = mean
+)
+
+par(mfrow = c(2, 2))
+plot(running_nuovi_positivi[2:nrow(cov)], cov$terapia_intensiva[2:nrow(cov)])
+plot(running_terapia_intensiva[2:nrow(cov)], cov$terapia_intensiva[2:nrow(cov)])
+plot(running_ricoverati_con_sintomi[2:nrow(cov)], cov$terapia_intensiva[2:nrow(cov)])
+plot(running_colore[7:nrow(cov)], cov$terapia_intensiva[7:nrow(cov)])
+
+par(mfrow = c(1, 1))
+cov$running_nuovi_positivi <- running_nuovi_positivi
+cov <- cov[-1, ] # Excluding the first point
+lm_new_positives <- lm(terapia_intensiva ~ running_nuovi_positivi, data = cov)
+par(mfrow = c(2, 2))
+plot(lm_new_positives)
+
+with(cov, plot(running_nuovi_positivi, terapia_intensiva, pch = 19))
+abline(coef(lm_new_positives), col="red", lty="solid")
+
+text(70, 170, expression(terapia_intensiva == hat(beta)[0] + 
+                           hat(beta)[1] * running_nuovi_positivi), col="red")
+
+points(cov$running_nuovi_positivi, predict(lm_new_positives), col = "red", 
+       pch = 19, cex = 0.8)
+
+segments(cov$running_nuovi_positivi, cov$terapia_intensiva, 
+         cov$running_nuovi_positivi, fitted(lm_new_positives), lty="dashed")
+
+lm_running <- lm(terapia_intensiva ~ running_nuovi_positivi +  
+                      shifted_sliding_ICU, data = cov)
+
+plot(cov$data, fitted(lm_running), type = "b", pch = 19, cex = 0.8,
+     col = "red", ylim = c(40, 220))
+points(cov$data, cov$terapia_intensiva,  type = "b", pch = 19, 
+       cex = 0.8, col = "black")
+segments(cov$data, cov$terapia_intensiva, 
+         cov$data, fitted(lm_running), lty = "dashed")
+
+
+lm_running_poly <- lm(terapia_intensiva ~ running_nuovi_positivi +  
+                   shifted_sliding_ICU+I(running_nuovi_positivi^2), data = cov)
+
+plot(cov$data, fitted(lm_running_poly), type = "b", pch = 19, cex = 0.8,
+     col = "red", ylim = c(40, 220))
+points(cov$data, cov$terapia_intensiva,  type = "b", pch = 19, 
+       cex = 0.8, col = "black")
+segments(cov$data, cov$terapia_intensiva, 
+         cov$data, fitted(lm_running_poly), lty = "dashed")
+
+lm_running_inv <- lm(terapia_intensiva ~ running_nuovi_positivi +  
+                        shifted_sliding_ICU + I(running_nuovi_positivi^(-1)), data = cov)
+
+plot(cov$data, fitted(lm_running_inv), type = "b", pch = 19, cex = 0.8,
+     col = "red", ylim = c(40, 220))
+points(cov$data, cov$terapia_intensiva,  type = "b", pch = 19, 
+       cex = 0.8, col = "black")
+segments(cov$data, cov$terapia_intensiva, 
+         cov$data, fitted(lm_running_inv), lty = "dashed")
+
+AIC <- c(extractAIC(lm_running)[2], extractAIC(lm_running_poly)[2], extractAIC(lm_running_inv)[2])
+AIC
+
+plot(lm_running_poly)
