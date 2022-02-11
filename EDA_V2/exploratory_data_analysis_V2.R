@@ -318,7 +318,7 @@ fit_glm_all <- glm(terapia_intensiva ~ . - data, data = cov, family = poisson)
 fit_glm_no_color <- glm(terapia_intensiva ~ . - colore - data, data = cov, 
                         family = poisson)
 fit_glm_high_correlation <- glm(terapia_intensiva ~ ricoverati_con_sintomi + 
-                                nuovi_positivi + deceduti_daily, data = cov, 
+                                nuovi_positivi + deceduti, data = cov, 
                                 family = poisson)
 
 fit_glm_all # AIC: 950.6 <- Best
@@ -329,7 +329,7 @@ fit_glm_high_correlation # AIC: 1009 <- Worse
 fitted_values_high_correlation <- exp(fit_glm_high_correlation$coefficients[1] + 
                                       fit_glm_high_correlation$coefficients[2] * cov$ricoverati_con_sintomi +
                                       fit_glm_high_correlation$coefficients[3] * cov$nuovi_positivi +  
-                                      fit_glm_high_correlation$coefficients[4] * cov$deceduti_daily)
+                                      fit_glm_high_correlation$coefficients[4] * cov$deceduti)
 
 plot(cov$data, cov$terapia_intensiva, ylim = c(0, 250))
 points(cov$data, fitted_values_high_correlation, type = 'l')
