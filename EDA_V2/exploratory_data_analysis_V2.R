@@ -88,6 +88,7 @@ cov <- merge(cov,color, by.x = "data", by.y = "data", all.x = TRUE)
 cov[is.na(cov)] <- "pre_decreto"
 cov$colore <- as.factor(cov$colore)
 
+cov_completo <- cov
 
 
 ###############################################################################
@@ -287,5 +288,63 @@ ggarrange(NP_TI,NPN_TI,
 cov <- dplyr::select(cov, -deceduti_daily,-dimessi_guariti_dayly, -casi_testati_daily, -nuovi_positivi_norm)
 
 #write.csv(cov,"cov_post_EDA.csv")
+
+
+###############################################################################
+#                              SECOND OPTION                                  #
+###############################################################################
+
+# we know that ricoverati_con_sintomi + terapia_intensiva = totale_ospedalizzati
+# and totale_ospedalizzati + isolamento_domiciliare = totale_positivi
+# till now we condidered the data divided in categories. Now I want to see what
+# happens if we consider the grouped data: totale_positivi
+
+names(cov_completo)
+cov_group <- dplyr::select(cov_completo, -ricoverati_con_sintomi, -totale_ospedalizzati, -isolamento_domiciliare, -tamponi,
+                           -casi_testati, -deceduti_daily, -dimessi_guariti_dayly, -casi_testati_daily,
+                           -terapia_intensiva_ieri, -nuovi_positivi_norm, -totale_casi)
+
+names(cov_group)
+
+# plot terapia_intensiva wrt all the variables
+date_TI <- ggplot(cov_completo, aes(x=data, y=terapia_intensiva, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
+TP_TI <- ggplot(cov_completo, aes(x=totale_positivi, y=terapia_intensiva, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
+NP_TI <- ggplot(cov_completo, aes(x=nuovi_positivi,y=terapia_intensiva, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
+DG_TI <- ggplot(cov_completo, aes(x=dimessi_guariti,y=terapia_intensiva, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
+D_TI <- ggplot(cov_completo, aes(x=deceduti,y=terapia_intensiva, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
+PV_TI <- ggplot(cov_completo, aes(x=perc_vax,y=terapia_intensiva, color=colore)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme_ipsum()
+
+
+x11()
+ggarrange(date_TI,TP_TI,NP_TI,DG_TI,D_TI ,PV_TI,
+          ncol = 3, nrow = 2)
+
+# discard outliers
+cov_group <- cov_group[-which.max(cov_group$terapia_intensiva),]
+
+
+
+write.csv(cov_group,"cov_group_post_EDA.csv")
+
+
+
 
 

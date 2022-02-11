@@ -32,7 +32,7 @@ str(cov)
 
 cov_lm1 <- dplyr::select(cov,-terapia_intensiva_ieri)
 names(cov_lm1)
-lm1 <- lm(terapia_intensiva ~. , data = cov_lm1)
+lm1 <- lm(terapia_intensiva ~. -data , data = cov_lm1)
 lm1
 summary(lm1)
 extractAIC(lm1)
@@ -91,6 +91,20 @@ plot(lm1_step)
 
 # lm1_step has better AIC and better R^2
 
+# try manualy
+summary(lm1)
+
+#remove perc_vax
+lm1_manual <- update(lm1, . ~ . -perc_vax)
+summary(lm1_manual)
+extractAIC(lm1_manual)
+
+#remove dimessi_guariti
+lm1_manual <- update(lm1_manual, . ~ . -dimessi_guariti)
+summary(lm1_manual)
+extractAIC(lm1_manual)
+
+# R^2 and AIC are almost the same -> we prefer t consider te simplest model
 
 ###############################################################################
 #                            RIDGE REGRESSION                                 #
@@ -132,32 +146,32 @@ coef(lm2)
 
 # I do it with lm1_step, then we can do it whit the model that we choose at the end
 
-lev <- hatvalues(lm1_step)
+lev <- hatvalues(lm1_manual)
 lev
 sum(lev)
 dim(cov_lm1)
 n <- dim(cov_lm1)[1]
 p <- dim(cov_lm1)[2]
 
-length(lm1_step$fitted.values)
+length(lm1_manual$fitted.values)
 
-#x11()
-plot( lm1_step$fitted.values, lev, ylab = "Leverages", main = "Plot of Leverages", pch = 16, col = 'black' ) 
+x11()
+plot( lm1_manual$fitted.values, lev, ylab = "Leverages", main = "Plot of Leverages", pch = 16, col = 'black' ) 
 abline( h = 2 * p/n, lty = 2, col = 'red' )
 watchout_points_lev = lev[ which( lev > 2 * p/n  ) ] 
 watchout_ids_lev = seq_along( lev )[ which( lev > 2 * p/n ) ]
-points( lm1_step$fitted.values[ watchout_ids_lev ], watchout_points_lev, col = 'red', pch = 16 )
+points( lm1_manual$fitted.values[ watchout_ids_lev ], watchout_points_lev, col = 'red', pch = 16 )
 
-lm1_step$call
+lm1_manual$call
 
 # fit the model without the influential points:
-lm1_no_inf <- lm(formula = terapia_intensiva ~ data + ricoverati_con_sintomi + 
+lm1_no_inf <- lm(formula = terapia_intensiva ~ ricoverati_con_sintomi + 
                    isolamento_domiciliare + nuovi_positivi + deceduti + colore, 
                  data = cov_lm1, subset = lev < 2 * p/n)
 summary(lm1_no_inf)
 
 # investigate the differences in the coef
-abs( ( lm1_step$coefficients - lm1_no_inf$coefficients ) / lm1_step$coefficients )
+abs( ( lm1_manual$coefficients - lm1_no_inf$coefficients ) / lm1_manual$coefficients )
 
 #The leverages affect the estimate heavily: exept for nuovi_positivi, there is a variation of 18% at least
 
@@ -169,107 +183,35 @@ pairs( cov_lm1[ , c( 'terapia_intensiva','data','ricoverati_con_sintomi',
        pch = 16, col = colors, cex = 1 + 0.5 * as.numeric( colors != 'black' )    )
 
 
-# if we want to expand this section, we can also consider to compute the nfluential point WRT cook's distance
-
-
-
-
-
+# if we want to expand this section, we can also consider to compute the influential point WRT cook's distance
 
 
 ###############################################################################
-#                        BOX-COX TRANSFORMATION                               #
+#                          MODEL WITH THE GROUP DATA                          #
 ###############################################################################
 
-###x11()
-##b <- boxCox(lm1)
-##names(b)
-##best_lambda_ind = which.max( b$y )
-##best_lambda = b$x[ best_lambda_ind ]
-##best_lambda
-###0.6666667
-##
-### we know that for lambda = 0.5 we transform Y in Sqrt(Y) and for lamda = 1 we keep Y as it is
-### check if trasforming terapia_intensiva in sqrt(terapia_intensiva) the normality gets better
-##
-##lm_sqrt <- lm(sqrt(terapia_intensiva) ~. , data = cov_lm1)
-##lm_sqrt
-##summary(lm_sqrt)
-###x11()
-##par(mfrow=c(2,2))
-##plot(lm_sqrt)
-##
-### we don't have an improvement in the normality hypotesis, so we keep our variable
-##
-### oppure
-##powerTransform <- function(y, lambda1, lambda2 = NULL, method = "boxcox") {
-##  
-##  boxcoxTrans <- function(x, lam1, lam2 = NULL) {
-##    
-##    # if we set lambda2 to zero, it becomes the one parameter transformation
-##    lam2 <- ifelse(is.null(lam2), 0, lam2)
-##    
-##    if (lam1 == 0L) {
-##      log(y + lam2)
-##    } else {
-##      (((y + lam2)^lam1) - 1) / lam1
-##    }
-##  }
-##  
-##  switch(method
-##         , boxcox = boxcoxTrans(y, lambda1, lambda2)
-##         , tukey = y^lambda1
-##  )
-##}
-##
-##
-### re-run with transformation
-##lm1_bct <- lm(powerTransform(terapia_intensiva, best_lambda) ~ . , data = cov_lm1)
-##
-### QQ-plot
-###x11()
-##par(mfrow=c(1,2))
-##qqnorm(lm1$residuals); qqline(lm1$residuals)
-##qqnorm(mnew$residuals); qqline(mnew$residuals)
-##
-###x11()
-##par(mfrow=c(2,2))
-##plot(mnew)
-##
-### we don't have an improvement in the normality hypotesis, so we keep our variable
+# upload the dataset
+cov_group <- read.csv("cov_group_post_EDA.csv")
+cov_group <- dplyr::select(cov_group,-totale_casi)
+cov_group <- dplyr::select(cov_group,-X)
+cov_group$colore <- as.factor(cov_group$colore)
+cov_group$data <- as.Date(cov_group$data)
+names(cov_group)
+str(cov_group)
+
+
+# lets see if this model is better
+lmg <- lm(terapia_intensiva ~. -data , data = cov_group)
+summary(lmg)
+extractAIC(lmg)
+extractAIC(lm1_manual)
+
+# the divided model is better!
 
 
 
-###################################################################################
 
 
 
-### what happens if we consider also terapia_intensiva_ieri (in this case, should we discard data?)
-##names(cov)
-##cov_lm2 <- cov
-##names(cov_lm2)
-##lm2 <- lm(terapia_intensiva ~. , data = cov_lm2)
-##lm2
-##summary(lm2)
-###AIC(lm1)
-##
-###x11()
-##par(mfrow=c(2,2))
-##plot(lm2)
-##
-### we do a stepwise procedure to select the best lm
-##lm2_step <- step(lm2)
-##summary(lm2_step)
-###x11()
-##par(mfrow=c(2,2))
-##plot(lm2_step)
-##
-##lm1_step$call
-##lm2_step$call
-##
-##extractAIC(lm1)
-##extractAIC(lm1_step)
-##extractAIC(lm2)
-##extractAIC(lm2_step)
 
 
