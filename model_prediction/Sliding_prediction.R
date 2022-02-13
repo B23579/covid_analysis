@@ -20,7 +20,7 @@ library(pracma)
 # DATASET PREPARATION ##########################################################
 # Upload and prepare the dataset cov
 # Import the dataset
-cov_orig <- read.csv("/home/walter/DSSC/I/SM/exam/Covid19.csv")
+cov_orig <- read.csv("EDA_V2/Covid19.csv")
 
 # Selecting the variables/period of interest
 upper.date <- "2021-01-31"
@@ -35,7 +35,7 @@ cov$data <- as.Date(cov$data)
 cov <- filter(cov, cov$data >= lower.date, cov$data <= upper.date)
 
 # Uploading ad adding the color dataset
-color_orig <- read_csv("/home/walter/DSSC/I/SM/exam/color.csv")
+color_orig <- read_csv("EDA_V2/color.csv")
 color <- subset(color_orig, color_orig$denominazione_regione == region)
 names(color)
 color <- dplyr::select(color, "data", "colore")
@@ -58,7 +58,7 @@ cov$colore <- unclass(cov$colore)
 levels(cov$colore)
 
 # Upload and prepare the dataset vax and add it to cov
-vax_orig <- read_csv("/home/walter/DSSC/I/SM/exam/Vax.csv")
+vax_orig <- read_csv("EDA_V2/Vax.csv")
 vax <- subset(vax_orig,vax_orig$nome_area == region)
 vax <- dplyr::select(vax, data_somministrazione, totale)
 vax <- subset(vax,vax$data_somministrazione <= upper.date)
@@ -109,8 +109,19 @@ cov <- filter(cov, cov$Date >= actual.lower.date)
 # High correlation with 'terapia_intensiva' 
 cor(cov$ICU, cov$Sliding.ICU) # Pretty high as expected
 
+names(cov)
+str(cov)
+
+
+cov<-filter(cov,New.positives,Sliding.ICU)
+
 # Fit complete LM with original variables plus added variable
 sliding.lm1 <- lm(ICU ~. -Date, data = cov)
+summary(sliding.lm1)
+extractAIC(sliding.lm1) # AIC: 529
+
+# Fit complete LM with original variables plus added variable
+sliding.lm1 <- lm(ICU ~. -Date,-, data = cov)
 summary(sliding.lm1)
 extractAIC(sliding.lm1) # AIC: 529
                   
