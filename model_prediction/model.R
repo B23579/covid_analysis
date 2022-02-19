@@ -57,20 +57,7 @@ summary(mod_4)
 #It appears we have a strong statistical effects for other covariates, but not for perc_vax,
 plot(mod_4,residuals = TRUE, pages = 1, pch = 19)
 
-mod_5<- gam(terapia_intensiva ~s(ricoverati_con_sintomi)+s(deceduti) 
-            +s(isolamento_domiciliare), data=train)
-
-summary(mod_5)
-#It appears we have a strong statistical effects for all the covariates
-plot(mod_4,residuals = TRUE, pages = 1, pch = 19)
-
-
-AIC(mod_1,mod_2,mod_3,mod_4,mod_5)
-
-
-
-
-anova(mod_1,mod_2,mod_3,mod_4, test="Chisq")
+AIC(mod_1,mod_2,mod_3,mod_4)
 
 anova(mod_1,mod_2, test="Chisq")
 
@@ -79,33 +66,40 @@ anova(mod_3,mod_4, test="Chisq")
 anova(mod_4,mod_5, test="Chisq")
 
 
-new<-mutate(cov,fittes=mod_2$fitted.values,fittes1=mod_4$fitted.values)
+new<-mutate(cov,fittes=mod_2$fitted.values,fittes1=mod_3$fitted.values,fittes3=mod_4$fitted.values,fittes4=mod_4$fitted.values)
 
 #### 
 
 p<-ggplot(new)+
   geom_point(aes(data,terapia_intensiva,color="True"))+
-  geom_line(aes(data,fittes,color= "Predicted_m2"))+
-  geom_line(aes(data,fittes1,color= "Predicted_m5"))
+  geom_point(aes(data,fittes,color= "Predicted model 2"))+
+  labs(x=" Periode", y= " Number of people in intensive care ", title = " Model fitting ")+
+  theme(plot.title = element_text(hjust = 0.5))
 p
 
-ggsave(p, filename = "Result//GAM_result_mod5.png")
+ggsave(p, filename = "Result//GAM_result_mod2.png")
 
 p<-ggplot(new)+
   geom_point(aes(data,terapia_intensiva,color="True"))+
-  geom_point(aes(data,fittes1,color= "Predicted_m5"))
+  geom_point(aes(data,fittes1,color= "Predicted model 3"))+
+  labs(x=" Periode", y= " Number of people in intensive care ", title = " Model fitting ")+
+  theme(plot.title = element_text(hjust = 0.5))
 p
 
-ggsave(p, filename = "Result/GAM_result2.png")
+ggsave(p, filename = "Result/GAM_result_mod3.png")
 
 # next, do more on model comparison 
 
 p<-ggplot(new)+
-  geom_line(aes(data,terapia_intensiva,color="True"))+
-  geom_line(aes(data,fittes1,color= "Predicted_m4"))
+  geom_point(aes(data,terapia_intensiva,color="True"))+
+  geom_point(aes(data,fittes3,color= "Predicted model 4"))+
+  labs(x=" Periode", y= " Number of people in intensive care ", title = " Model fitting ")+
+  theme(plot.title = element_text(hjust = 0.5))
 p
 
-ggsave(p, filename = "Result/GAM_result2.png")
+ggsave(p, filename = "Result/GAM_result4.png")
+
+
 
 
 
