@@ -220,12 +220,13 @@ date_PV <- ggplot(cov, aes(x=Date, y=Percentage.vaccinated, color=Color)) +
         panel.grid.minor = element_line(colour= "grey"),
         panel.background = element_rect(fill = 'white', colour = 'white'))
 
-x11()
-ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DG,date_D,date_TC,
+p <- ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DG,date_D,date_TC,
           date_T,date_CT,date_PV,
           ncol = 3, nrow = 4)
+x11()
+p
 
-ggsave(p2, filename = "img/all_wrt_Date.png")
+ggsave(p, filename = "img/all_wrt_Date.png")
 
 # we notice some outliers
 watchout_point_TI <- max(cov$ICU)
@@ -306,12 +307,14 @@ date_PV <- ggplot(cov, aes(x=Date, y=Percentage.vaccinated, color=Color)) +
         panel.grid.minor = element_line(colour= "grey"),
         panel.background = element_rect(fill = 'white', colour = 'white'))
 
-x11()
-ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DG,date_D,date_TC,
+p <- ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DG,date_D,date_TC,
           date_T,date_CT,date_PV,
           ncol = 3, nrow = 4)
 
-ggsave(p2, filename = "img/all_wrt_Date_no_outliers.png")
+x11()
+p
+
+ggsave(p, filename = "img/all_wrt_Date_no_outliers.png")
 
 
 # plot ICU wrt all the variables
@@ -387,11 +390,13 @@ CT_TI <- ggplot(cov, aes(x=Cases.tested,y=ICU, color=Color)) +
         panel.grid.minor = element_line(colour= "grey"),
         panel.background = element_rect(fill = 'white', colour = 'white'))
 
-x11()
-ggarrange(RCS_TI,ID_TI,NP_TI,DG_TI,D_TI ,PV_TI, TC_TI, T_TI, CT_TI,
+p <- ggarrange(RCS_TI,ID_TI,NP_TI,DG_TI,D_TI ,PV_TI, TC_TI, T_TI, CT_TI,
           ncol = 3, nrow = 3)
 
-ggsave(p2, filename = "img/ICU_wrt_all.png")
+x11()
+p
+
+ggsave(p, filename = "img/ICU_wrt_all.png")
 
 
 ##prova
