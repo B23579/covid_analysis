@@ -35,6 +35,8 @@ names(cov)
 str(cov)
 #x11()
 #plot(cov)
+# discard 5 December and do again all the models
+cov<-filter(cov,cov$Date != "2020-12-05")
 
 
 # Fit complete GLM with original variables

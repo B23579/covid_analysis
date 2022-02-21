@@ -15,7 +15,7 @@ library(MASS)
 library(regclass)
 library(RColorBrewer)
 
-#setwd("C:/Users/Cecilia/OneDrive/Desktop/Ceci/UniTS/Statistical_Methods_for_Data_Science/Progetto/covid_analysis/model_prediction")
+#setwd("C:/Users/Cecilia/OneDrive/Desktop/Ceci/UniTS/Statistical_Methods_for_Data_Science/Progetto_new/covid_analysis/model_prediction")
 
 # upload data created with script EDA_V2
 cov <- read.csv("cov_post_EDA.csv")
@@ -42,7 +42,6 @@ extractAIC(lm1)
 x11()
 par(mfrow=c(2,2))
 plot(lm1)
-
 
 #summary(lm1)$adj.r.squared
 
@@ -194,12 +193,16 @@ abs( ( lm1_manual$coefficients - lm1_no_inf$coefficients ) / lm1_manual$coeffici
 
 #The leverages affect the estimate heavily: exept for New.positives, there is a variation of 18% at least
 
-#x11()
+x11()
 colors = rep( 'black', nrow( cov_lm1 ) )
 colors[ watchout_ids_lev ] = c('red', 'blue', 'green', 'orange', 'yellow', 'purple')
 pairs( cov_lm1[ , c( 'ICU','Date','Hospitalized.with.symptoms', 
                      'People.at.home','New.positives','Deceased','Color' ) ],
        pch = 16, col = colors, cex = 1 + 0.5 * as.numeric( colors != 'black' )    )
+
+#x11()
+#pairs( cov_lm1[ , c( 'ICU','Date', ) ],
+#       pch = 16, col = colors, cex = 1 + 0.5 * as.numeric( colors != 'black' )    )
 
 # the influential points are the values of the 4, 5, 6, 7 November and 5 December
 
@@ -236,6 +239,12 @@ extractAIC(lm2_manual)
 
 new_row <- c("lm2_manual",round(summary(lm2_manual)$adj.r.squared, digits = 3),round(extractAIC(lm1_step)[2], digits = 3))
 tab_lm <- rbind(tab_lm, new_row)
+
+x11()
+ggplot(cov_lm1) +
+  geom_point(aes(x = Date, y = ICU)) +
+  geom_line(aes(x = Date,y = fitted(lm1_manual)),color="blue", size=1.2)
+
 
 ###############################################################################
 #                                PREDICTION                                   #
