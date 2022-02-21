@@ -29,8 +29,8 @@ library(sjmisc)
 # upload data created with script EDA_V2
 cov <- read.csv("cov_post_EDA.csv")
 cov <- dplyr::select(cov,-X)
-cov$colore <- as.factor(cov$colore)
-cov$data <- as.Date(cov$data)
+cov$Color <- as.factor(cov$Color)
+cov$Date <- as.Date(cov$Date)
 names(cov)
 str(cov)
 #x11()
@@ -38,10 +38,15 @@ str(cov)
 
 
 # Fit complete GLM with original variables
-cov_glm1 <- dplyr::select(cov,-terapia_intensiva_ieri)
-glm1 <- glm(terapia_intensiva ~. -data, data = cov_glm1, family = poisson)
+cov_glm1 <- cov
+glm1 <- glm(ICU ~. -Date, data = cov_glm1, family = poisson)
 summary(glm1)
 extractAIC(glm1)
+
+tab_Glm <- data.frame(matrix(ncol = 2, nrow = 0))
+new_row <- c("complete_Glm",round(extractAIC(glm1)[2], digits = 3))
+tab_Glm <- rbind(tab_Glm, new_row)
+colnames(tab_Glm) <- c("Model","AIC")
 
 # Before starting to interpret results, let's check whether the model has over-dispersion
 # or under-dispersion.
@@ -77,8 +82,8 @@ plot(glm1)
 
 x11()
 ggplot(cov_glm1) +
-  geom_point(aes(x = data, y = terapia_intensiva)) +
-  geom_line(aes(x = data,y = fitted(glm1)))
+  geom_point(aes(x = Date, y = ICU)) +
+  geom_line(aes(x = Date,y = fitted(glm1)),color="blue", size=1.2)
 
 
 
@@ -89,6 +94,9 @@ ggplot(cov_glm1) +
 glm1_step <- step(glm1)
 summary(glm1_step)
 extractAIC(glm1_step)
+
+new_row <- c("Glm_auto_step",round(extractAIC(glm1_step)[2], digits = 3))
+tab_Glm <- rbind(tab_Glm, new_row)
 
 # the reduced method has a better AIC, so we choose this one
 
@@ -126,12 +134,20 @@ plot(glm1_step)
 
 # I think that we should do this analysis for each model and then use the tools that we have to compare the nested models.
 
-# also consider to use an offset (casi giornalieri)
+# People.at.home has a p-value of 7%, what happens if I discard it?
+glm1_manual <- update(glm1_step, . ~ . -People.at.home)
+summary(glm1_manual)
+extractAIC(glm1_manual)
+
+new_row <- c("Glm_manual_step",round(extractAIC(glm1_manual)[2], digits = 3))
+tab_Glm <- rbind(tab_Glm, new_row)
+
+# The AIC increases again, so we choose to consider the automatic step model
 
 x11()
 ggplot(cov_glm1) +
-  geom_point(aes(x = data, y = terapia_intensiva)) +
-  geom_line(aes(x = data,y = fitted(glm1_step)))
+  geom_point(aes(x = Date, y = ICU)) +
+  geom_line(aes(x = Date,y = fitted(glm1_step)),color="blue", size=1.2)
 
 
 # comparing nested models
