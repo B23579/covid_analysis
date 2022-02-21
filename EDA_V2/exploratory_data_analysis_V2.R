@@ -115,25 +115,34 @@ names(cov)  <- c('Date'
 
 # plot the dependencies between Hospitalized.with.symptoms ICU Total.Hospitalized
 p1 <- ggplot(cov) +
-  geom_line(mapping = aes(x=Date, y = Hospitalized.with.symptoms, color = "Hospitalized.with.symptoms")) +
-  geom_line(mapping = aes(x=Date, y = ICU, color = "ICU")) +
-  geom_line(mapping = aes(x=Date, y = Total.Hospitalized, color = "Total.Hospitalized")) +
-  theme_ipsum()
+  geom_line(mapping = aes(x=Date, y = Hospitalized.with.symptoms, color = "Hospitalized.with.symptoms"),size=1.1) +
+  geom_line(mapping = aes(x=Date, y = ICU, color = "ICU"),size=1.1) +
+  geom_line(mapping = aes(x=Date, y = Total.Hospitalized, color = "Total.Hospitalized"),size=1.1) +
+  ggtitle('Hospitalized.with.symptoms, ICU and Total.Hospitalized over time') +
+  theme(axis.title.y = element_blank(),plot.title = element_text(hjust = 0.5,size=18),
+        legend.title=element_text(size=14))
 
-#x11()
+x11()
 p1
+
+ggsave(p1, filename = "img/Tot_hosp_wrt_Date.png")
+
 # we can discard Total.Hospitalized
 
 
 # same with Total.Hospitalized People.at.home Total.positives
 p2 <- ggplot(cov) +
-  geom_line(mapping = aes(x=Date, y = Total.Hospitalized, color = "Total.Hospitalized")) +
-  geom_line(mapping = aes(x=Date, y = People.at.home, color = "People.at.home")) +
-  geom_line(mapping = aes(x=Date, y = Total.positives, color = "Total.positives")) +
-  theme_ipsum()
+  geom_line(mapping = aes(x=Date, y = Total.Hospitalized, color = "Total.Hospitalized"),size=1.1) +
+  geom_line(mapping = aes(x=Date, y = People.at.home, color = "People.at.home"),size=1.1) +
+  geom_line(mapping = aes(x=Date, y = Total.positives, color = "Total.positives"),size=1.1) +
+  ggtitle('Hospitalized.with.symptoms, People.at.home and Total.positives over time') +
+  theme(axis.title.y = element_blank(),plot.title = element_text(hjust = 0.5,size=18),
+        legend.title=element_text(size=14))
 
-#x11()
+x11()
 p2
+
+ggsave(p2, filename = "img/Tot_pos_wrt_Date.png")
 
 # we can discard Total.positives 
 cov <- dplyr::select(cov, -Total.Hospitalized, -Total.positives)
@@ -143,49 +152,80 @@ names(cov)
 date_TI <- ggplot(cov, aes(x=Date, y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_RCS <- ggplot(cov, aes(x=Date, y=Hospitalized.with.symptoms, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_ID <- ggplot(cov, aes(x=Date, y=People.at.home, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_NP <- ggplot(cov, aes(x=Date, y=New.positives, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_DG <- ggplot(cov, aes(x=Date, y=Discharged.healed, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_D <- ggplot(cov, aes(x=Date, y=Deceased, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_TC <- ggplot(cov, aes(x=Date, y=Total.cases, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_T <- ggplot(cov, aes(x=Date, y=Covid.tests, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_CT <- ggplot(cov, aes(x=Date, y=Cases.tested, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 date_PV <- ggplot(cov, aes(x=Date, y=Percentage.vaccinated, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),,legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 
 x11()
 ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DG,date_D,date_TC,
           date_T,date_CT,date_PV,
           ncol = 3, nrow = 4)
 
+ggsave(p2, filename = "img/all_wrt_Date.png")
 
 # we notice some outliers
 watchout_point_TI <- max(cov$ICU)
@@ -195,54 +235,175 @@ cov <- cov[-which.max(cov$ICU),]
 
 # ploot again
 
+date_TI <- ggplot(cov, aes(x=Date, y=ICU, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_RCS <- ggplot(cov, aes(x=Date, y=Hospitalized.with.symptoms, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_ID <- ggplot(cov, aes(x=Date, y=People.at.home, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_NP <- ggplot(cov, aes(x=Date, y=New.positives, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_DG <- ggplot(cov, aes(x=Date, y=Discharged.healed, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_D <- ggplot(cov, aes(x=Date, y=Deceased, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_TC <- ggplot(cov, aes(x=Date, y=Total.cases, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_T <- ggplot(cov, aes(x=Date, y=Covid.tests, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_CT <- ggplot(cov, aes(x=Date, y=Cases.tested, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+date_PV <- ggplot(cov, aes(x=Date, y=Percentage.vaccinated, color=Color)) + 
+  geom_point(size=3) +
+  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
+
+x11()
+ggarrange(date_TI,date_RCS,date_ID,date_NP,date_DG,date_D,date_TC,
+          date_T,date_CT,date_PV,
+          ncol = 3, nrow = 4)
+
+ggsave(p2, filename = "img/all_wrt_Date_no_outliers.png")
+
+
 # plot ICU wrt all the variables
 names(cov)
 date_TI <- ggplot(cov, aes(x=Date, y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 RCS_TI <- ggplot(cov, aes(x=Hospitalized.with.symptoms, y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 ID_TI <- ggplot(cov, aes(x=People.at.home, y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 NP_TI <- ggplot(cov, aes(x=New.positives,y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 DG_TI <- ggplot(cov, aes(x=Discharged.healed,y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 D_TI <- ggplot(cov, aes(x=Deceased,y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 PV_TI <- ggplot(cov, aes(x=Percentage.vaccinated,y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 TC_TI <- ggplot(cov, aes(x=Total.cases,y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 T_TI <- ggplot(cov, aes(x=Covid.tests,y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 CT_TI <- ggplot(cov, aes(x=Cases.tested,y=ICU, color=Color)) + 
   geom_point(size=3) +
   scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-  theme_ipsum(axis_text_size = 8,plot_margin = ggplot2::margin(10, 10, 10, 10))
+  theme(axis.text = element_text(size = 8),legend.position = "none",
+        panel.grid.major = element_line(colour = "grey"),
+        panel.grid.minor = element_line(colour= "grey"),
+        panel.background = element_rect(fill = 'white', colour = 'white'))
 
 x11()
 ggarrange(RCS_TI,ID_TI,NP_TI,DG_TI,D_TI ,PV_TI, TC_TI, T_TI, CT_TI,
           ncol = 3, nrow = 3)
 
+ggsave(p2, filename = "img/ICU_wrt_all.png")
 
+
+##prova
+#x11()
+#ggplot(cov, aes(x=log(Discharged.healed),y=ICU, color=Color)) + 
+#  geom_point(size=3) +
+#  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
+#  theme(axis.text = element_text(size = 8),legend.position = "none",
+#        panel.grid.major = element_line(colour = "grey"),
+#        panel.grid.minor = element_line(colour= "grey"),
+#        panel.background = element_rect(fill = 'white', colour = 'white'))
+#
 
 
 
@@ -257,64 +418,3 @@ cov<-filter(cov,cov$Date>="2020-10-01",cov$Date<="2021-02-01")
 
 #write.csv(cov,"cov_post_EDA.csv")
 #write.csv(test_cov,"test_cov.csv")
-
-
-###############################################################################
-#                              SECOND OPTION                                  #
-###############################################################################
-
-# we know that Hospitalized.with.symptoms + ICU = Total.Hospitalized
-# and Total.Hospitalized + People.at.home = Total.positives
-# till now we condidered the Date divided in categories. Now I want to see what
-# happens if we consider the grouped Date: Total.positives
-###
-###names(cov_completo)
-###cov_group <- dplyr::select(cov_completo, -Hospitalized.with.symptoms, -Total.Hospitalized, -People.at.home, -Covid.tests,
-###                           -Cases.tested, 
-###                           -ICU_ieri, -New.positives_norm, -Total.cases)
-###
-###names(cov_group)
-###
-#### plot ICU wrt all the variables
-###date_TI <- ggplot(cov_completo, aes(x=Date, y=ICU, color=Color)) + 
-###  geom_point(size=3) +
-###  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-###  theme_ipsum()
-###TP_TI <- ggplot(cov_completo, aes(x=Total.positives, y=ICU, color=Color)) + 
-###  geom_point(size=3) +
-###  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-###  theme_ipsum()
-###NP_TI <- ggplot(cov_completo, aes(x=New.positives,y=ICU, color=Color)) + 
-###  geom_point(size=3) +
-###  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-###  theme_ipsum()
-###DG_TI <- ggplot(cov_completo, aes(x=Discharged.healed,y=ICU, color=Color)) + 
-###  geom_point(size=3) +
-###  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-###  theme_ipsum()
-###D_TI <- ggplot(cov_completo, aes(x=Deceased,y=ICU, color=Color)) + 
-###  geom_point(size=3) +
-###  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-###  theme_ipsum()
-###PV_TI <- ggplot(cov_completo, aes(x=Percentage.vaccinated,y=ICU, color=Color)) + 
-###  geom_point(size=3) +
-###  scale_color_manual(values=c("orange", "yellow", "grey", "red")) +
-###  theme_ipsum()
-###
-###
-###x11()
-###ggarrange(date_TI,TP_TI,NP_TI,DG_TI,D_TI ,PV_TI,
-###          ncol = 3, nrow = 2)
-###
-#### discard outliers
-###cov_group <- cov_group[-which.max(cov_group$ICU),]
-###
-###
-###
-###write.csv(cov_group,"cov_group_post_EDA.csv")
-###
-###
-###
-###
-###
-###
